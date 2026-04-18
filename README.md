@@ -1,11 +1,12 @@
 # spotify-viz
 
-Hand-drawn Visualisierungen deiner persönlichen Spotify-Hörgeschichte.
+Data-driven Visualisierungen deiner persönlichen Spotify-Hörgeschichte.
 Liest den **Extended Streaming History**-Export (aus Spotify → Privacy → Download your data),
-aggregiert lokal in eine kleine `data.json` und rendert mit [rough.js](https://roughjs.com)
-in einer Paper-CSS-artigen Ästhetik.
+aggregiert lokal in eine kleine `data.json` und rendert als präzise SVGs
+(Inter + JetBrains Mono, grüne Accent-Farbe, Observable-Feeling).
 
-Kein OAuth, kein Server, kein Tracking — alles lokal.
+Kein OAuth, kein Server, kein Tracking — alles lokal. Demo:
+**https://loggel.github.io/spotify-viz/**
 
 ## Was drin ist (14 Visualisierungen)
 
