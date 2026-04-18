@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.local
+.DS_Store
+*.log
+
+# raw spotify export stays local (huge + private)
+data/raw/
+# public/data.json is committed so GH Actions can build without raw

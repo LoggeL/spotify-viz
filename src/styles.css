@@ -1,0 +1,371 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: #fafaf8;
+  --panel: #ffffff;
+  --ink: #111418;
+  --ink-2: #3a414a;
+  --muted: #6b7380;
+  --rule: #e6e6e1;
+  --grid: #ededea;
+  --accent: #1db954;
+  --accent-2: #111418;
+  --warn: #d94f4f;
+  --info: #3b6fd6;
+
+  /* categorical palette — muted, print-friendly */
+  --c0: #111418;
+  --c1: #1db954;
+  --c2: #3b6fd6;
+  --c3: #d94f4f;
+  --c4: #c47a00;
+  --c5: #7a4ed2;
+  --c6: #108080;
+  --c7: #8a8578;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mono { font-family: "JetBrains Mono", "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+#app { max-width: 1240px; margin: 0 auto; padding: 40px 28px 96px; }
+
+header {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+}
+header h1 {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+header .lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0;
+  margin: 16px 0 0;
+  border-top: 1px solid var(--rule);
+}
+.stat {
+  padding: 12px 16px 12px 0;
+  border-right: 1px solid var(--rule);
+}
+.stat:last-child { border-right: none; }
+.stat .k { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+.stat .v { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; font-size: 1.1rem; font-weight: 600; }
+
+nav.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 28px 0 0;
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+}
+nav.tabs button {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 0.84rem;
+  padding: 10px 14px;
+  color: var(--ink-2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .1s, border-color .1s;
+  white-space: nowrap;
+}
+nav.tabs button:hover { color: var(--ink); }
+nav.tabs button.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+  font-weight: 600;
+}
+nav.tabs button.all { margin-left: auto; color: var(--accent); }
+nav.tabs button.all.active { border-bottom-color: var(--accent); }
+nav.tabs button.print-btn {
+  color: var(--ink);
+  border-left: 1px solid var(--rule);
+  margin-left: 8px;
+  padding-left: 18px;
+}
+nav.tabs button.print-btn::before {
+  content: "⎙ ";
+  opacity: 0.8;
+}
+
+.viz-card {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 20px 24px 24px;
+  margin: 20px 0;
+}
+.viz-card header {
+  border-bottom: none;
+  padding: 0 0 12px;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.viz-card h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.viz-card .subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: "JetBrains Mono", monospace;
+}
+
+svg.viz {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: "Inter", sans-serif;
+}
+svg.viz text { font-size: 11px; fill: var(--ink-2); }
+svg.viz .axis { fill: var(--muted); font-size: 10px; }
+svg.viz .axis-label { fill: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+svg.viz .num { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+svg.viz .rule { stroke: var(--rule); stroke-width: 1; }
+svg.viz .grid { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 2; }
+
+.records {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.record {
+  background: var(--panel);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.record .r-kind {
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.record .r-headline {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
+  margin-top: 2px;
+}
+.record .r-detail {
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.record .r-detail .mono {
+  color: var(--ink);
+}
+.record.accent .r-headline { color: var(--accent); }
+.record.warn .r-headline { color: var(--warn); }
+.record.info .r-headline { color: var(--info); }
+
+.status {
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  border-radius: 4px;
+  margin: 16px 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+footer {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-family: "JetBrains Mono", monospace;
+}
+
+code {
+  background: var(--grid);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.88em;
+}
+
+.tip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--ink);
+  color: #fff;
+  padding: 5px 9px;
+  font-size: 0.76rem;
+  border-radius: 3px;
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  z-index: 1000;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .08s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.tip.show { opacity: 1; }
+
+/* ============================================================
+   PRINT VIEW  (for PDF export via browser print)
+   ============================================================ */
+@media print {
+  /* @page margin = 0 so browser doesn't stack its own margin on top.
+     All visual margin comes from #app padding. Set browser print
+     dialog "Margins: None" for pixel-identical output. */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 10pt;
+    width: 210mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #app {
+    max-width: none;
+    margin: 0;
+    padding: 14mm 12mm;
+    width: 210mm;
+    box-sizing: border-box;
+  }
+
+  /* hide UI chrome */
+  nav.tabs,
+  .tip,
+  footer {
+    display: none !important;
+  }
+
+  /* header: compact, all stats visible */
+  header {
+    border-bottom: 2px solid #000;
+    padding-bottom: 8mm;
+    margin-bottom: 6mm;
+    page-break-after: avoid;
+  }
+  header h1 {
+    font-size: 20pt;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header .lead { font-size: 9pt; color: #555; }
+
+  .stats {
+    grid-template-columns: repeat(7, 1fr);
+    margin-top: 5mm;
+    border-top: 1px solid #bbb;
+  }
+  .stat {
+    padding: 3mm 4mm 3mm 0;
+    border-right: 1px solid #bbb;
+  }
+  .stat .k { font-size: 6.5pt; letter-spacing: 0.08em; }
+  .stat .v { font-size: 11pt; }
+
+  /* viz cards: page-break friendly */
+  .viz-card {
+    border: none;
+    border-radius: 0;
+    padding: 0 0 6mm 0;
+    margin: 0 0 8mm 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    background: transparent;
+  }
+  .viz-card header {
+    border-bottom: 1px solid #bbb;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+  }
+  .viz-card h2 { font-size: 13pt; }
+  .viz-card .subtitle { font-size: 8pt; }
+
+  /* page breaks between major sections */
+  .viz-card[data-print-break="before"] {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* records grid prints nicely on one page */
+  .records {
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid #aaa;
+    background: #ddd;
+  }
+  .record {
+    padding: 3mm 4mm;
+    background: #fff;
+    break-inside: avoid;
+  }
+  .record .r-kind { font-size: 6.5pt; }
+  .record .r-headline { font-size: 13pt; }
+  .record .r-detail { font-size: 8pt; color: #333; }
+
+  /* SVG viz fills the inner page width exactly */
+  svg.viz {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+  }
+  .viz-card > svg.viz,
+  .viz-card > * {
+    max-width: 186mm;
+  }
+  svg.viz text { fill: #000 !important; }
+  svg.viz .axis, svg.viz .axis-label { fill: #555 !important; }
+
+  /* ensure image flags render in print */
+  svg image { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* remove hover shadows */
+  .viz-card, .records, .record, .stat { box-shadow: none !important; }
+}
