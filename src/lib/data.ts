@@ -90,7 +90,7 @@ export interface DataBundle {
 let cache: DataBundle | null = null;
 export async function loadData(): Promise<DataBundle> {
   if (cache) return cache;
-  const res = await fetch("/data.json");
+  const res = await fetch(`${import.meta.env.BASE_URL}data.json`);
   if (!res.ok) throw new Error(`data.json fetch failed: ${res.status}`);
   cache = (await res.json()) as DataBundle;
   return cache;
