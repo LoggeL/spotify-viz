@@ -138,8 +138,8 @@ async function aggregateGenreTimeSeries(nameToGenres) {
     .map(([g, v]) => ({ g, plays: v.plays, ms: v.ms, artists: v.artists.size, sampleArtists: [...v.artists].slice(0, 6) }))
     .sort((x, y) => y.plays - x.plays);
 
-  // Stacked area data: top 10 genres, remaining bundled into "other"
-  const TOP_STACK = 10;
+  // Stacked area data: top 12 genres, remaining bundled into "other"
+  const TOP_STACK = 12;
   const topG = topGenres.slice(0, TOP_STACK).map((x) => x.g);
   const topSet = new Set(topG);
   const byYearStacked = yearsArr.map((y) => {
@@ -168,13 +168,44 @@ async function aggregateGenreTimeSeries(nameToGenres) {
     g: g.g, first: firstHeard.get(g.g), plays: g.plays, ms: g.ms,
   })).sort((a, b) => a.first.localeCompare(b.first));
 
+  // Per-genre yearly plays for the top 60 (used by treemap trend + streamgraph).
+  // Kept compact: just an array aligned to yearsArr.
+  const topNames = topGenres.slice(0, 60).map((x) => x.g);
+  const yearlyByGenre = {};
+  const yearTotals = yearsArr.map((y) => {
+    const m = byYear.get(y) || new Map();
+    let s = 0;
+    for (const v of m.values()) s += v.plays;
+    return s;
+  });
+  for (const name of topNames) {
+    yearlyByGenre[name] = yearsArr.map((y) => byYear.get(y)?.get(name)?.plays || 0);
+  }
+
+  // Trend metric per genre: (share in latest year) − (avg share across earlier years).
+  // Positive → growing; negative → declining. Scaled to roughly [-1, 1] for color mapping.
+  const topWithTrend = topGenres.slice(0, 60).map((g) => {
+    const ys = yearlyByGenre[g.g];
+    const shares = ys.map((v, i) => (yearTotals[i] ? v / yearTotals[i] : 0));
+    const lastShare = shares[shares.length - 1] ?? 0;
+    const earlier = shares.slice(0, -1).filter((_, i) => yearTotals[i] > 0);
+    const avgEarlier = earlier.length ? earlier.reduce((a, b) => a + b, 0) / earlier.length : 0;
+    const delta = lastShare - avgEarlier;
+    // normalise against total share so small genres aren’t flattened
+    const trend = avgEarlier > 0.0001 ? delta / Math.max(avgEarlier, 0.005) : (lastShare > 0 ? 1 : 0);
+    return { ...g, trend: Math.max(-1, Math.min(1, trend)), lastShare, avgEarlierShare: avgEarlier };
+  });
+
   return {
-    top: topGenres.slice(0, 60),
+    top: topWithTrend,
     stackedGenres: topG,
     byYearStacked,
     topPerYear,
     diversity,
     firstHeard: firstHeardArr,
+    years: yearsArr,
+    yearTotals,
+    yearlyByGenre,
   };
 }
 

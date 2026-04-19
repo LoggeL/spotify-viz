@@ -88,12 +88,18 @@ export interface DataBundle {
   zeroDays: number;
   yearHour: { y: string; hours: number[] }[];
   genres?: {
-    top: { g: string; plays: number; ms: number; artists: number; sampleArtists: string[] }[];
+    top: {
+      g: string; plays: number; ms: number; artists: number; sampleArtists: string[];
+      trend: number; lastShare: number; avgEarlierShare: number;
+    }[];
     stackedGenres: string[];
     byYearStacked: ({ year: string; other: number } & Record<string, number | string>)[];
     topPerYear: { year: string; rows: { g: string; plays: number; ms: number }[] }[];
     diversity: { year: string; n: number }[];
     firstHeard: { g: string; first: string; plays: number; ms: number }[];
+    years: string[];
+    yearTotals: number[];
+    yearlyByGenre: Record<string, number[]>;
     enriched: number;
     coveredPlays: number;
     coveredMs: number;
