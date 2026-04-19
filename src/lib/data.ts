@@ -87,6 +87,12 @@ export interface DataBundle {
   dayHist: { bucket: string; n: number; totalMs: number }[];
   zeroDays: number;
   yearHour: { y: string; hours: number[] }[];
+  songLength: { ym: string; avgMs: number; n: number }[];
+  perYear: {
+    y: string;
+    artists: { a: string; plays: number; ms: number }[];
+    tracks: { a: string; t: string; plays: number; ms: number }[];
+  }[];
   genres?: {
     top: {
       g: string; plays: number; ms: number; artists: number; sampleArtists: string[];

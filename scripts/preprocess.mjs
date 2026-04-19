@@ -437,6 +437,50 @@ async function main() {
     .sort((a, b) => b.n - a.n)
     .slice(0, 10);
 
+  // per-year top artists + top tracks (for year-switcher card)
+  const yearArtistAgg = new Map();
+  const yearTrackAgg = new Map();
+  for (const p of fullPlays) {
+    const y = p.ts.slice(0, 4);
+    if (!yearArtistAgg.has(y)) yearArtistAgg.set(y, new Map());
+    const aMap = yearArtistAgg.get(y);
+    const ar = aMap.get(p.a) || { plays: 0, ms: 0 };
+    ar.plays += 1; ar.ms += p.ms;
+    aMap.set(p.a, ar);
+    if (!yearTrackAgg.has(y)) yearTrackAgg.set(y, new Map());
+    const tMap = yearTrackAgg.get(y);
+    const k = `${p.a}\u0000${p.t}`;
+    const tr = tMap.get(k) || { plays: 0, ms: 0 };
+    tr.plays += 1; tr.ms += p.ms;
+    tMap.set(k, tr);
+  }
+  const perYear = [...years].sort().map((y) => ({
+    y,
+    artists: [...(yearArtistAgg.get(y)?.entries() || [])]
+      .map(([a, v]) => ({ a, plays: v.plays, ms: v.ms }))
+      .sort((x, z) => z.plays - x.plays)
+      .slice(0, 15),
+    tracks: [...(yearTrackAgg.get(y)?.entries() || [])]
+      .map(([k, v]) => { const [a, t] = k.split("\u0000"); return { a, t, plays: v.plays, ms: v.ms }; })
+      .sort((x, z) => z.plays - x.plays)
+      .slice(0, 15),
+  }));
+
+  // average completed-track length per month — uses reason_end = "trackdone"
+  // plays (ms_played ≈ song length for those). Filter out tiny outliers.
+  const songLenByMonth = new Map(); // ym → { sum, n }
+  for (const p of fullPlays) {
+    if (p.re !== "trackdone") continue;
+    if (p.ms < 45_000 || p.ms > 30 * 60_000) continue; // drop ads / podcasts / anomalies
+    const ym = p.ts.slice(0, 7);
+    if (!songLenByMonth.has(ym)) songLenByMonth.set(ym, { sum: 0, n: 0 });
+    const r = songLenByMonth.get(ym);
+    r.sum += p.ms; r.n += 1;
+  }
+  const songLength = [...songLenByMonth.entries()]
+    .map(([ym, v]) => ({ ym, avgMs: v.sum / v.n, n: v.n }))
+    .sort((a, b) => a.ym.localeCompare(b.ym));
+
   // year-month grid reshaped: hour-of-day heatmap PER YEAR (small multiples) — 24h × years
   const yearHour = [...years].sort().map((y) => {
     const hours = Array(24).fill(0);
@@ -619,6 +663,8 @@ async function main() {
     dayHist,
     zeroDays,
     yearHour,
+    songLength,
+    perYear,
   };
 
   await mkdir(OUT_DIR, { recursive: true });

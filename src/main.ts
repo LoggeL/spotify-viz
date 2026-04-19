@@ -30,6 +30,8 @@ import { renderGenreEvolution } from "./viz/genre-evolution";
 import { renderGenrePerYear } from "./viz/genre-per-year";
 import { renderGenreDiversity } from "./viz/genre-diversity";
 import { renderGenreFirst } from "./viz/genre-first";
+import { renderSongLength } from "./viz/song-length";
+import { renderPerYearTop } from "./viz/per-year-top";
 import { renderGenreTreemap } from "./viz/genre-treemap";
 import { renderGenreStream } from "./viz/genre-stream";
 import { renderGenreSunburst } from "./viz/genre-sunburst";
@@ -44,11 +46,13 @@ interface VizDef {
 
 const VIZ: VizDef[] = [
   { id: "records", title: "Records & Extremes", subtitle: "die crazy stats aus fast 9 jahren hören", render: renderRecords },
+  { id: "per-year-top", title: "Top per Year", subtitle: "top artists + top tracks · jahr wählbar", render: renderPerYearTop },
   { id: "hours-year", title: "Hours per Year", subtitle: "jahres-totals in stunden", render: renderHoursPerYear },
   { id: "cumulative", title: "Lifetime Cumulative", subtitle: "aufsummierte hör-stunden über die zeit", render: renderCumulative },
   { id: "top-artists", title: "Top Artists", subtitle: "ranked by full plays (≥30s)", render: renderTopArtists },
   { id: "top-albums", title: "Top Albums", subtitle: "ranked by hours listened", render: renderTopAlbums },
   { id: "top-tracks", title: "Top Tracks", subtitle: "most repeated tracks overall", render: renderTopTracks },
+  { id: "song-length", title: "Song Length Drift", subtitle: "avg played duration (trackdone plays) über die zeit", render: renderSongLength },
   { id: "lorenz", title: "Artist Concentration", subtitle: "wie konzentriert hörst du? (lorenz curve)", render: renderLorenz },
   { id: "discovery", title: "Discovery Rate", subtitle: "neue artists pro monat — erstes mal gehört", render: renderDiscovery },
   { id: "genres", title: "Top Genres", subtitle: "ranked genres aus Spotify-API (top-500 artists)", render: renderGenres },
@@ -109,9 +113,13 @@ async function main() {
   span.textContent = `${t.firstPlay.slice(0, 10)} → ${t.lastPlay.slice(0, 10)}`;
 
   const stats = app.querySelector<HTMLDivElement>("#stats")!;
+  const spanDays = Math.max(1,
+    (new Date(t.lastPlay).getTime() - new Date(t.firstPlay).getTime()) / 86_400_000);
+  const avgHoursPerDay = (t.totalMs / 3_600_000) / spanDays;
   const cells = [
     { k: "Plays", v: fmtNum(t.totalPlays) },
     { k: "Hours", v: fmtHours(t.totalMs) },
+    { k: "Avg h/day", v: `${avgHoursPerDay.toFixed(2)} h` },
     { k: "Artists", v: fmtNum(t.uniqueArtists) },
     { k: "Albums", v: fmtNum(t.uniqueAlbums) },
     { k: "Tracks", v: fmtNum(t.uniqueTracks) },

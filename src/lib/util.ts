@@ -91,3 +91,17 @@ export function pick<T>(arr: T[], i: number): T {
 export function formatThousands(n: number): string {
   return n.toLocaleString("de-DE");
 }
+
+export function spotifySearchUrl(query: string): string {
+  return `https://open.spotify.com/search/${encodeURIComponent(query)}`;
+}
+
+export function link(href: string, ...children: SVGElement[]): SVGAElement {
+  const a = document.createElementNS("http://www.w3.org/2000/svg", "a") as unknown as SVGAElement;
+  a.setAttribute("href", href);
+  a.setAttribute("target", "_blank");
+  a.setAttribute("rel", "noopener noreferrer");
+  a.style.cursor = "pointer";
+  for (const c of children) a.appendChild(c);
+  return a;
+}

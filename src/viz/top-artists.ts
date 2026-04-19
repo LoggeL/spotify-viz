@@ -1,4 +1,4 @@
-import { mkSvg, rect, text, line, attachHover, C_INK, C_RULE } from "../lib/util";
+import { mkSvg, rect, text, line, attachHover, link, spotifySearchUrl, C_INK, C_RULE } from "../lib/util";
 import { fmtHours, fmtNum, type DataBundle } from "../lib/data";
 
 export function renderTopArtists(data: DataBundle, n = 25): SVGSVGElement {
@@ -33,14 +33,13 @@ export function renderTopArtists(data: DataBundle, n = 25): SVGSVGElement {
       "text-anchor": "end", class: "num", fill: "#9aa0a9",
     }));
     const name = r.a.length > 26 ? r.a.slice(0, 25) + "…" : r.a;
-    svg.appendChild(text(rankW + 6, y + 16, name, { "font-size": 13, fill: C_INK }));
-
+    const nameEl = text(rankW + 6, y + 16, name, { "font-size": 13, fill: C_INK, class: "row-link" });
     // track (bg)
     svg.appendChild(rect(barStart, y + 8, barMax, rowH - 16, { fill: "#f4f4f1" }));
     // bar
     const bar = rect(barStart, y + 8, Math.max(1, barW), rowH - 16, { fill: C_INK });
-    attachHover(bar, `${r.a}  ${fmtNum(r.plays)} plays  ${fmtHours(r.ms)}`);
-    svg.appendChild(bar);
+    attachHover(bar, `${r.a}  ${fmtNum(r.plays)} plays  ${fmtHours(r.ms)}  · click to open on Spotify`);
+    svg.appendChild(link(spotifySearchUrl(r.a), nameEl, bar));
 
     svg.appendChild(text(barStart + barMax + 8, y + 16, fmtNum(r.plays), { class: "num", "font-size": 12 }));
     svg.appendChild(text(W - 8, y + 16, fmtHours(r.ms), {
