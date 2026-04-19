@@ -12,18 +12,6 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
   const years = data.genres.years;
   const yearlyByGenre = data.genres.yearlyByGenre;
 
-  // Total plays per genre across years (for selecting top-10).
-  const totals = new Map<string, number>();
-  for (const [g, row] of Object.entries(yearlyByGenre)) {
-    let s = 0;
-    for (const v of row) s += v;
-    totals.set(g, s);
-  }
-  const selected = [...totals.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([g]) => g);
-
   // Rank every genre for every year (1 = most played). Ties get deterministic order.
   // rankByYear[yearIndex] → Map<genre, rank(1-based)>
   const rankByYear: Map<string, number>[] = years.map((_, yi) => {
@@ -35,34 +23,65 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
     return m;
   });
 
-  // Auto-size the y-axis to cover every selected genre's worst rank.
-  // Picking a fixed MAX_RANK caused faded holes whenever a top-by-total genre
-  // dropped far down in a given year (medieval metal at #43 in 2017, etc.)
-  let worst = 12;
+  // Total plays per genre (used as a relevance filter + tiebreaker).
+  const totals = new Map<string, number>();
+  for (const [g, row] of Object.entries(yearlyByGenre)) {
+    let s = 0;
+    for (const v of row) s += v;
+    totals.set(g, s);
+  }
+
+  // Pick the 10 genres with the *best average rank* across years. Selecting by
+  // total plays previously let niche super-spikes (medieval metal, folk metal)
+  // into the top-10 even though they ranked #40+ in most years — the resulting
+  // lines dove off-chart every time. Average rank keeps the bump chart legible:
+  // the lines you see are ones that actually stay in the upper ranks.
+  const topTotal = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
+  const ranked = topTotal.map(([g]) => {
+    const ranks = years.map((_, yi) => rankByYear[yi].get(g) ?? 999);
+    const avg = ranks.reduce((s, r) => s + r, 0) / ranks.length;
+    return { g, avg, total: totals.get(g) || 0 };
+  });
+  const selected = ranked
+    .sort((a, b) => a.avg - b.avg || b.total - a.total)
+    .slice(0, 10)
+    .map((x) => x.g);
+
+  // Auto-size the y-axis to cover every selected genre's worst rank. No upper
+  // cap — niche-then-dominant genres (anime, medieval metal, etc.) can spike
+  // from #1 to #35 across years, and the whole point of the chart is to show
+  // those swings. Row height adapts to the rank range instead.
+  let worst = 10;
   for (const g of selected) {
     for (let yi = 0; yi < years.length; yi++) {
       const r = rankByYear[yi].get(g);
       if (r && r > worst) worst = r;
     }
   }
-  const MAX_RANK = Math.min(30, worst);
+  const MAX_RANK = worst;
 
   const W = 1100;
-  const H = 520;
+  // Grow vertical space so each rank line has enough room even when the range
+  // blows out to 30+. Minimum plot height 430, ~14px per rank.
+  const rowPx = 14;
+  const plotH = Math.max(430, (MAX_RANK - 1) * rowPx);
+  const T = 50, B = 40;
+  const H = plotH + T + B;
   // L leaves room for the rank axis (#N) AND the genre name that labels each line's
   // starting rank. R leaves room for the genre name at the line's ending rank.
-  const L = 180, R = 180, T = 50, B = 40;
+  const L = 180, R = 180;
   const plotW = W - L - R;
-  const plotH = H - T - B;
   const svg = mkSvg(W, H);
 
   const xs = (yi: number) => years.length === 1
     ? L + plotW / 2
     : L + (yi / (years.length - 1)) * plotW;
-  const ys = (rank: number) => T + ((rank - 1) / (MAX_RANK - 1)) * plotH;
+  // Clamp the y-position so any rank beyond MAX_RANK sticks to the bottom rail
+  // instead of drifting off the chart.
+  const ys = (rank: number) => T + ((Math.min(rank, MAX_RANK) - 1) / (MAX_RANK - 1)) * plotH;
 
   // Gridlines: one per rank; label spacing scales down as rank range grows.
-  const labelEvery = MAX_RANK <= 12 ? 1 : MAX_RANK <= 20 ? 2 : 5;
+  const labelEvery = MAX_RANK <= 12 ? 1 : MAX_RANK <= 20 ? 2 : MAX_RANK <= 40 ? 5 : 10;
   for (let r = 1; r <= MAX_RANK; r++) {
     const y = ys(r);
     svg.appendChild(line(L, y, L + plotW, y, {

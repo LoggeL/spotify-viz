@@ -62,7 +62,7 @@ const VIZ: VizDef[] = [
   { id: "genre-sunburst", title: "Genre Hierarchy", subtitle: "sunburst · super-kategorien → einzelne genres", render: renderGenreSunburst },
   { id: "genre-race", title: "Genre Share Timeline", subtitle: "sparkline per genre · share of year", render: renderGenreRace },
   { id: "genre-evolution", title: "Genre Evolution", subtitle: "stacked plays pro jahr · top 10 genres + other", render: renderGenreEvolution },
-  { id: "genre-per-year", title: "Genre Rank Over Time", subtitle: "bump chart · rank #1–#12 per jahr · lines swap positions", render: renderGenrePerYear },
+  { id: "genre-per-year", title: "Genre Rank Over Time", subtitle: "bump chart · 10 consistently top-ranked genres · lines swap positions", render: renderGenrePerYear },
   { id: "genre-diversity", title: "Genre Diversity", subtitle: "unique genres pro jahr", render: renderGenreDiversity },
   { id: "genre-first", title: "Genre Peak Months", subtitle: "welchen monat dominiert jedes top-genre (höchster share)", render: renderGenreFirst },
   { id: "weekday", title: "Weekday Fingerprint", subtitle: "gesamt-stunden pro wochentag", render: renderWeekday },
