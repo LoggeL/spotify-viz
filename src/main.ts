@@ -24,6 +24,12 @@ import { renderDiscovery } from "./viz/discovery";
 import { renderLorenz } from "./viz/lorenz";
 import { renderDayHist } from "./viz/day-hist";
 import { renderYearHours } from "./viz/year-hours";
+import { renderGenres } from "./viz/genres";
+import { renderGenreCloud } from "./viz/genre-cloud";
+import { renderGenreEvolution } from "./viz/genre-evolution";
+import { renderGenrePerYear } from "./viz/genre-per-year";
+import { renderGenreDiversity } from "./viz/genre-diversity";
+import { renderGenreFirst } from "./viz/genre-first";
 
 interface VizDef {
   id: string;
@@ -41,6 +47,12 @@ const VIZ: VizDef[] = [
   { id: "top-tracks", title: "Top Tracks", subtitle: "most repeated tracks overall", render: renderTopTracks },
   { id: "lorenz", title: "Artist Concentration", subtitle: "wie konzentriert hörst du? (lorenz curve)", render: renderLorenz },
   { id: "discovery", title: "Discovery Rate", subtitle: "neue artists pro monat — erstes mal gehört", render: renderDiscovery },
+  { id: "genres", title: "Top Genres", subtitle: "ranked genres aus Spotify-API (top-500 artists)", render: renderGenres },
+  { id: "genre-cloud", title: "Genre Cloud", subtitle: "alle genres gewichtet nach plays", render: renderGenreCloud },
+  { id: "genre-evolution", title: "Genre Evolution", subtitle: "stacked plays pro jahr · top 10 genres + other", render: renderGenreEvolution },
+  { id: "genre-per-year", title: "Top Genres per Year", subtitle: "je jahr die top 5 genres nach plays", render: renderGenrePerYear },
+  { id: "genre-diversity", title: "Genre Diversity", subtitle: "unique genres pro jahr", render: renderGenreDiversity },
+  { id: "genre-first", title: "Genre Debut Timeline", subtitle: "wann jedes top-genre das erste mal lief", render: renderGenreFirst },
   { id: "weekday", title: "Weekday Fingerprint", subtitle: "gesamt-stunden pro wochentag", render: renderWeekday },
   { id: "clock", title: "Listening Clock", subtitle: "hour × weekday heatmap", render: renderClock },
   { id: "clock-spiral", title: "24h Distribution", subtitle: "stunden summiert über alle wochentage", render: renderClockSpiral },

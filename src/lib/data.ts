@@ -21,6 +21,8 @@ export interface TopArtist {
   last: string;
   skips: number;
   exposures: number;
+  uri?: string;
+  genres?: string[];
 }
 export interface TopTrack { a: string; t: string; plays: number; ms: number; }
 export interface TopAlbum { a: string; al: string; plays: number; ms: number; }
@@ -85,6 +87,20 @@ export interface DataBundle {
   dayHist: { bucket: string; n: number; totalMs: number }[];
   zeroDays: number;
   yearHour: { y: string; hours: number[] }[];
+  genres?: {
+    top: { g: string; plays: number; ms: number; artists: number; sampleArtists: string[] }[];
+    stackedGenres: string[];
+    byYearStacked: ({ year: string; other: number } & Record<string, number | string>)[];
+    topPerYear: { year: string; rows: { g: string; plays: number; ms: number }[] }[];
+    diversity: { year: string; n: number }[];
+    firstHeard: { g: string; first: string; plays: number; ms: number }[];
+    enriched: number;
+    coveredPlays: number;
+    coveredMs: number;
+    totalTopPlays: number;
+    totalTopMs: number;
+    uniqueGenres: number;
+  };
 }
 
 let cache: DataBundle | null = null;

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "preprocess": "node scripts/preprocess.mjs",
+    "enrich-genres": "node scripts/enrich-genres.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

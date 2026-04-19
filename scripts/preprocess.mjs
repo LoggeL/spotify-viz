@@ -52,6 +52,7 @@ async function main() {
         a: artist,
         t: track,
         al: r.master_metadata_album_album_name || "",
+        uri: (r.spotify_track_uri || "").replace(/^spotify:track:/, ""),
         pf: normPlatform(r.platform),
         cc: r.conn_country || "",
         sh: r.shuffle ? 1 : 0,
@@ -75,12 +76,14 @@ async function main() {
   const artistAnyMs = new Map();
   const artistFirst = new Map();
   const artistLast = new Map();
+  const artistSampleUri = new Map(); // representative track URI per artist (for API lookup)
   for (const p of plays) {
     artistAny.set(p.a, (artistAny.get(p.a) || 0) + 1);
     artistAnyMs.set(p.a, (artistAnyMs.get(p.a) || 0) + p.ms);
     if (p.sk) artistSkips.set(p.a, (artistSkips.get(p.a) || 0) + 1);
     if (!artistFirst.has(p.a)) artistFirst.set(p.a, p.ts);
     artistLast.set(p.a, p.ts);
+    if (p.uri && !artistSampleUri.has(p.a)) artistSampleUri.set(p.a, p.uri);
     if (p.ms >= MIN_MS) {
       artistPlays.set(p.a, (artistPlays.get(p.a) || 0) + 1);
       artistMs.set(p.a, (artistMs.get(p.a) || 0) + p.ms);
@@ -95,9 +98,10 @@ async function main() {
       last: artistLast.get(a),
       skips: artistSkips.get(a) || 0,
       exposures: artistAny.get(a) || 0,
+      uri: artistSampleUri.get(a) || "",
     }))
     .sort((x, y) => y.plays - x.plays)
-    .slice(0, 100);
+    .slice(0, 500);
 
   // tracks
   const trackKey = (p) => `${p.a}\u0000${p.t}`;
