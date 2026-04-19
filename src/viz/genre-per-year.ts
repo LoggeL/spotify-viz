@@ -11,7 +11,6 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
 
   const years = data.genres.years;
   const yearlyByGenre = data.genres.yearlyByGenre;
-  const MAX_RANK = 12;
 
   // Total plays per genre across years (for selecting top-10).
   const totals = new Map<string, number>();
@@ -36,6 +35,18 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
     return m;
   });
 
+  // Auto-size the y-axis to cover every selected genre's worst rank.
+  // Picking a fixed MAX_RANK caused faded holes whenever a top-by-total genre
+  // dropped far down in a given year (medieval metal at #43 in 2017, etc.)
+  let worst = 12;
+  for (const g of selected) {
+    for (let yi = 0; yi < years.length; yi++) {
+      const r = rankByYear[yi].get(g);
+      if (r && r > worst) worst = r;
+    }
+  }
+  const MAX_RANK = Math.min(30, worst);
+
   const W = 1100;
   const H = 520;
   // L leaves room for the rank axis (#N) AND the genre name that labels each line's
@@ -50,7 +61,8 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
     : L + (yi / (years.length - 1)) * plotW;
   const ys = (rank: number) => T + ((rank - 1) / (MAX_RANK - 1)) * plotH;
 
-  // Gridlines: one dashed horizontal per rank.
+  // Gridlines: one per rank; label spacing scales down as rank range grows.
+  const labelEvery = MAX_RANK <= 12 ? 1 : MAX_RANK <= 20 ? 2 : 5;
   for (let r = 1; r <= MAX_RANK; r++) {
     const y = ys(r);
     svg.appendChild(line(L, y, L + plotW, y, {
@@ -58,9 +70,11 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
       "stroke-width": 1,
       ...(r === 1 ? {} : { "stroke-dasharray": "2 3" }),
     }));
-    svg.appendChild(text(L - 8, y + 4, `#${r}`, {
-      "text-anchor": "end", class: "axis num", fill: C_MUTED,
-    }));
+    if (r === 1 || r === MAX_RANK || r % labelEvery === 0) {
+      svg.appendChild(text(L - 8, y + 4, `#${r}`, {
+        "text-anchor": "end", class: "axis num", fill: C_MUTED,
+      }));
+    }
   }
 
   // Year labels at top.
@@ -81,71 +95,41 @@ export function renderGenrePerYear(data: DataBundle): SVGSVGElement | HTMLElemen
     const color = PALETTE[gi % PALETTE.length];
     const row = yearlyByGenre[g] || [];
 
-    // Per-year rank info: actual rank, clamped rank, in-top flag.
+    // Per-year points. Since MAX_RANK is auto-sized to the worst rank a selected
+    // genre ever occupies, no clamping or fading is needed — every point is real.
     const pts = years.map((_, yi) => {
-      const actual = rankByYear[yi].get(g) || (MAX_RANK + 1);
-      const clamped = Math.min(actual, MAX_RANK);
-      return {
-        yi,
-        x: xs(yi),
-        y: ys(clamped),
-        actual,
-        clamped,
-        inTop: actual <= MAX_RANK,
-        plays: row[yi] || 0,
-      };
+      const rank = rankByYear[yi].get(g) || MAX_RANK;
+      return { yi, x: xs(yi), y: ys(rank), rank, plays: row[yi] || 0 };
     });
 
-    // Draw segment-by-segment so we can vary opacity when a segment touches out-of-top.
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1];
-      const faded = !a.inTop || !b.inTop;
-      const d = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
-      svg.appendChild(path(d, {
-        fill: "none",
-        stroke: color,
-        "stroke-width": 2.5,
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        opacity: faded ? 0.35 : 1,
-      }));
-    }
+    // Single polyline for the whole series.
+    const d = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+    svg.appendChild(path(d, {
+      fill: "none",
+      stroke: color,
+      "stroke-width": 2.5,
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+    }));
 
-    // Dots.
+    // Dots on each year.
     pts.forEach((p) => {
-      const c = circle(p.x, p.y, p.inTop ? 4 : 2.5, {
-        fill: color,
-        stroke: "#fff",
-        "stroke-width": p.inTop ? 2 : 1,
-        opacity: p.inTop ? 1 : 0.45,
+      const c = circle(p.x, p.y, 4, {
+        fill: color, stroke: "#fff", "stroke-width": 2,
       });
-      const rankTxt = p.inTop ? `#${p.actual}` : `#${p.actual} (out)`;
-      attachHover(c, `${g} · ${years[p.yi]} · rank ${rankTxt} · ${fmtNum(p.plays)} plays`);
+      attachHover(c, `${g} · ${years[p.yi]} · rank #${p.rank} · ${fmtNum(p.plays)} plays`);
       svg.appendChild(c);
     });
 
-    // Left label only if the genre is actually in the top at the first year —
-    // otherwise 8+ genres pile up at rank #12 and labels overlap unreadably.
+    // Labels at both ends (unconditional — no clamping means no pile-up at #12).
     const first = pts[0];
-    if (first.inTop) {
-      svg.appendChild(text(L - 40, first.y + 4, truncate(g), {
-        "text-anchor": "end",
-        fill: color,
-        "font-size": 11,
-        "font-weight": 600,
-      }));
-    }
-
-    // Right label, same rule for the last year.
+    svg.appendChild(text(L - 40, first.y + 4, truncate(g), {
+      "text-anchor": "end", fill: color, "font-size": 11, "font-weight": 600,
+    }));
     const last = pts[pts.length - 1];
-    if (last.inTop) {
-      svg.appendChild(text(L + plotW + 8, last.y + 4, truncate(g), {
-        "text-anchor": "start",
-        fill: color,
-        "font-size": 11,
-        "font-weight": 600,
-      }));
-    }
+    svg.appendChild(text(L + plotW + 8, last.y + 4, truncate(g), {
+      "text-anchor": "start", fill: color, "font-size": 11, "font-weight": 600,
+    }));
   });
 
   return svg;
