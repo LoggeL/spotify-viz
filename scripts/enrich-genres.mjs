@@ -167,8 +167,11 @@ async function aggregateGenreTimeSeries(nameToGenres) {
     .map(([g, v]) => ({ g, plays: v.plays, ms: v.ms, artists: v.artists.size, sampleArtists: [...v.artists].slice(0, 6) }))
     .sort((x, y) => y.plays - x.plays);
 
-  // Stacked area data: top 12 genres, remaining bundled into "other"
-  const TOP_STACK = 12;
+  // Stacked area data: top 25 genres, remaining bundled into "other".
+  // Spotify genres are fine-grained ("german pop" vs "german indie pop" vs
+  // "indie pop" etc.) so a 12-genre cut left "other" at ~35-50% of plays,
+  // which swamped the stream chart visually. 25 gets tail-coverage to ~80%.
+  const TOP_STACK = 25;
   const topG = topGenres.slice(0, TOP_STACK).map((x) => x.g);
   const topSet = new Set(topG);
   const byYearStacked = yearsArr.map((y) => {

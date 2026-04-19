@@ -31,7 +31,7 @@ function smoothAreaPath(top: [number, number][], bottom: [number, number][]): st
   return topPath + " " + bottomPath.replace(/^M/, "L") + " Z";
 }
 
-const TOP_N = 12;
+const TOP_N = 25;
 
 export function renderGenreStream(data: DataBundle): SVGSVGElement | HTMLElement {
   if (!data.genres) {
