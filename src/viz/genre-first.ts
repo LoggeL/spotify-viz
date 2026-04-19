@@ -1,16 +1,21 @@
 import { mkSvg, circle, text, line, attachHover, C_INK, C_MUTED, C_GRID } from "../lib/util";
-import { fmtHours, fmtNum, type DataBundle } from "../lib/data";
+import { fmtNum, type DataBundle } from "../lib/data";
 
-// Timeline of when each top-15 genre was first heard
+// Timeline of each top-15 genre's peak month (month where that genre's share
+// of total monthly plays was highest).
 export function renderGenreFirst(data: DataBundle): SVGSVGElement | HTMLElement {
-  if (!data.genres) {
+  if (!data.genres || !(data.genres as unknown as { peak?: unknown }).peak) {
     const p = document.createElement("p");
     p.className = "status"; p.textContent = "Keine Genre-Daten.";
     return p;
   }
-  const rows = data.genres.firstHeard;
+  const peak = (data.genres as unknown as {
+    peak: { g: string; ym: string; share: number; plays: number; totalPlays: number }[];
+  }).peak;
+  const rows = [...peak].sort((a, b) => a.ym.localeCompare(b.ym));
+
   const W = 980;
-  const rowH = 24;
+  const rowH = 26;
   const marginT = 50;
   const marginL = 60;
   const marginR = 20;
@@ -34,16 +39,25 @@ export function renderGenreFirst(data: DataBundle): SVGSVGElement | HTMLElement 
   svg.appendChild(line(marginL, 32, W - marginR, 32, { stroke: C_INK, "stroke-width": 1 }));
 
   rows.forEach((r, i) => {
-    const t = new Date(r.first).getTime();
+    const t = new Date(`${r.ym}-01`).getTime();
     const x = scale(t);
     const y = marginT + i * rowH;
     svg.appendChild(line(x, 32, x, y, {
       stroke: C_MUTED, "stroke-width": 0.5, "stroke-dasharray": "1 2",
     }));
-    const dot = circle(x, y, 4, { fill: C_INK });
-    attachHover(dot, `${r.g} · first ${r.first.slice(0, 10)} · ${fmtNum(r.plays)} plays · ${fmtHours(r.ms)}`);
+    const radius = Math.max(3, Math.min(3 + r.share * 60, 14));
+    const dot = circle(x, y, radius, { fill: C_INK });
+    attachHover(
+      dot,
+      `${r.g} — peak month ${r.ym} · ${(r.share * 100).toFixed(1)}% of that month's plays (${fmtNum(r.plays)} plays)`,
+    );
     svg.appendChild(dot);
-    svg.appendChild(text(x + 8, y + 4, `${r.g} · ${fmtNum(r.plays)} plays · ${fmtHours(r.ms)}`, { "font-size": 12 }));
+    svg.appendChild(text(
+      x + radius + 4,
+      y + 4,
+      `${r.g} · peak ${r.ym} · ${(r.share * 100).toFixed(0)}% share`,
+      { "font-size": 12 },
+    ));
   });
 
   return svg;

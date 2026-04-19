@@ -33,7 +33,9 @@ export interface PlatformRow {
   [key: string]: string | number | Record<string, number | string>;
 }
 
-export interface SkipArtist { a: string; exp: number; skips: number; plays: number; ms: number; rate: number; }
+export interface SkipTrack { t: string; full: number; skip: number; }
+export interface SkipArtist { a: string; exp: number; skips: number; plays: number; ms: number; skipMs: number; rate: number; avgSkipSec: number; topSkipTracks?: SkipTrack[]; }
+export interface SkipStats { globalRate: number; globalSkips: number; globalExposures: number; avgSkipMs: number; }
 export interface LoyaltyRow { a: string; active: number[]; }
 
 export interface Records {
@@ -70,6 +72,7 @@ export interface DataBundle {
   platforms: string[];
   shuffle: { shuffle: number; intentional: number; shuffleMs: number; intentionalMs: number };
   skipRate: SkipArtist[];
+  skipStats?: SkipStats;
   loyalty: { months: string[]; rows: LoyaltyRow[] };
   countries: { cc: string; n: number; ms: number }[];
   sessions: {
@@ -103,6 +106,7 @@ export interface DataBundle {
     topPerYear: { year: string; rows: { g: string; plays: number; ms: number }[] }[];
     diversity: { year: string; n: number }[];
     firstHeard: { g: string; first: string; plays: number; ms: number }[];
+    peak: { g: string; ym: string; share: number; plays: number; totalPlays: number }[];
     years: string[];
     yearTotals: number[];
     yearlyByGenre: Record<string, number[]>;

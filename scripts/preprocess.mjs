@@ -72,6 +72,7 @@ async function main() {
   const artistPlays = new Map();
   const artistMs = new Map();
   const artistSkips = new Map();
+  const artistSkipMs = new Map();
   const artistAny = new Map();
   const artistAnyMs = new Map();
   const artistFirst = new Map();
@@ -80,7 +81,10 @@ async function main() {
   for (const p of plays) {
     artistAny.set(p.a, (artistAny.get(p.a) || 0) + 1);
     artistAnyMs.set(p.a, (artistAnyMs.get(p.a) || 0) + p.ms);
-    if (p.sk) artistSkips.set(p.a, (artistSkips.get(p.a) || 0) + 1);
+    if (p.sk) {
+      artistSkips.set(p.a, (artistSkips.get(p.a) || 0) + 1);
+      artistSkipMs.set(p.a, (artistSkipMs.get(p.a) || 0) + p.ms);
+    }
     if (!artistFirst.has(p.a)) artistFirst.set(p.a, p.ts);
     artistLast.set(p.a, p.ts);
     if (p.uri && !artistSampleUri.has(p.a)) artistSampleUri.set(p.a, p.uri);
@@ -103,10 +107,20 @@ async function main() {
     .sort((x, y) => y.plays - x.plays)
     .slice(0, 500);
 
-  // tracks
+  // tracks (full = ms≥30s and not skipped; skip = sk flag regardless of ms)
   const trackKey = (p) => `${p.a}\u0000${p.t}`;
   const trackPlays = new Map();
   const trackMs = new Map();
+  const trackFull = new Map();
+  const trackSkip = new Map();
+  for (const p of plays) {
+    const k = trackKey(p);
+    if (p.sk) {
+      trackSkip.set(k, (trackSkip.get(k) || 0) + 1);
+    } else if (p.ms >= MIN_MS) {
+      trackFull.set(k, (trackFull.get(k) || 0) + 1);
+    }
+  }
   for (const p of fullPlays) {
     const k = trackKey(p);
     trackPlays.set(k, (trackPlays.get(k) || 0) + 1);
@@ -251,18 +265,54 @@ async function main() {
     if (p.sh) { shufP++; shufMs += p.ms; } else { intP++; intMs += p.ms; }
   }
 
-  // skip rate (min 25 exp)
+  // skip rate — kept broad so the scatter plot has context around the baseline.
+  // min 40 exposures = noise floor; top-200 by exposures keeps the most-hit artists.
+  let globalSkips = 0, globalSkipMs = 0;
+  for (const n of artistSkips.values()) globalSkips += n;
+  for (const n of artistSkipMs.values()) globalSkipMs += n;
+  const skipStats = {
+    globalRate: plays.length ? globalSkips / plays.length : 0,
+    globalSkips,
+    globalExposures: plays.length,
+    avgSkipMs: globalSkips ? globalSkipMs / globalSkips : 0,
+  };
+  // group track skip/full counts by artist, for drill-down
+  const artistTrackBreak = new Map(); // artist → [{t, full, skip}]
+  const allTrackKeys = new Set([...trackSkip.keys(), ...trackFull.keys()]);
+  for (const k of allTrackKeys) {
+    const idx = k.indexOf("\u0000");
+    const a = k.slice(0, idx);
+    const t = k.slice(idx + 1);
+    if (!artistTrackBreak.has(a)) artistTrackBreak.set(a, []);
+    artistTrackBreak.get(a).push({
+      t,
+      full: trackFull.get(k) || 0,
+      skip: trackSkip.get(k) || 0,
+    });
+  }
   const skipRate = [...artistAny.entries()]
     .map(([a, exp]) => ({
       a, exp,
       skips: artistSkips.get(a) || 0,
+      skipMs: artistSkipMs.get(a) || 0,
       ms: artistMs.get(a) || 0,
       plays: artistPlays.get(a) || 0,
     }))
-    .filter((x) => x.exp >= 25)
-    .map((x) => ({ ...x, rate: x.skips / x.exp }))
-    .sort((x, y) => y.rate - x.rate)
-    .slice(0, 30);
+    .filter((x) => x.exp >= 40)
+    .map((x) => {
+      const tracks = (artistTrackBreak.get(x.a) || [])
+        .filter((t) => t.skip > 0)
+        .sort((p, q) => q.skip - p.skip)
+        .slice(0, 5);
+      return {
+        ...x,
+        rate: x.skips / x.exp,
+        avgSkipSec: x.skips ? (x.skipMs / x.skips) / 1000 : 0,
+        topSkipTracks: tracks,
+      };
+    })
+    .sort((x, y) => y.exp - x.exp)
+    .slice(0, 200);
 
   // loyalty stripes
   const months = [];
@@ -650,6 +700,7 @@ async function main() {
     platforms: [...platforms].sort(),
     shuffle: { shuffle: shufP, intentional: intP, shuffleMs: shufMs, intentionalMs: intMs },
     skipRate,
+    skipStats,
     loyalty: { months, rows: loyalty },
     countries: countryArr,
     sessions: { hist: sessionHist, total: sessionLengths.length, byHour: sessionByHour },

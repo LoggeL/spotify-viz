@@ -1,4 +1,4 @@
-// Spotify genre enrichment for top-500 artists via Client Credentials flow.
+// Spotify genre enrichment for the top-N most-played artists via Client Credentials flow.
 // Reads raw streaming history too, to aggregate genres × year/month.
 // Caches artist→genres in public/artist-genres.json (skip API if present).
 import { readFile, writeFile, readdir } from "node:fs/promises";
@@ -13,6 +13,10 @@ const CACHE = process.env.CACHE_FILE || path.join(ROOT, "public/artist-genres.js
 const ENV = path.join(ROOT, ".env");
 const RAW_DIR = process.env.RAW_DIR || path.join(ROOT, "data/raw/Spotify Extended Streaming History");
 const MIN_MS = 30_000;
+// Default "effectively all": any artist with ≥1 play gets enriched.
+// Override via env for faster re-runs on big datasets.
+const ARTIST_POOL_SIZE = Number(process.env.ARTIST_POOL_SIZE || 50000);
+const MIN_POOL_PLAYS = Number(process.env.MIN_POOL_PLAYS || 1);
 
 async function loadEnv() {
   if (existsSync(ENV)) {
@@ -48,14 +52,39 @@ async function spget(url, token) {
   return res.json();
 }
 
-async function fetchGenresFromSpotify(data) {
+// Walk raw plays, build [{a, uri, plays}] for top-N most-played artists (full plays only).
+// Decoupled from data.topArtists (capped at 500) so we can enrich a larger pool than the bundle keeps.
+async function buildArtistPool() {
+  const files = (await readdir(RAW_DIR)).filter((f) => f.startsWith("Streaming_History_Audio") && f.endsWith(".json")).sort();
+  const byArtist = new Map();
+  for (const f of files) {
+    const raw = JSON.parse(await readFile(path.join(RAW_DIR, f), "utf8"));
+    for (const r of raw) {
+      const a = r.master_metadata_album_artist_name;
+      if (!a || !r.master_metadata_track_name) continue;
+      if (!byArtist.has(a)) byArtist.set(a, { plays: 0, uri: null });
+      const rec = byArtist.get(a);
+      const uri = (r.spotify_track_uri || "").replace(/^spotify:track:/, "");
+      if (uri && !rec.uri) rec.uri = uri;
+      if ((r.ms_played || 0) >= MIN_MS) rec.plays++;
+    }
+  }
+  return [...byArtist.entries()]
+    .map(([a, v]) => ({ a, uri: v.uri, plays: v.plays }))
+    .filter((x) => x.uri && x.plays >= MIN_POOL_PLAYS)
+    .sort((a, b) => b.plays - a.plays)
+    .slice(0, ARTIST_POOL_SIZE);
+}
+
+async function fetchGenresForPool(pool, existing) {
+  const todo = pool.filter((p) => !(p.a in existing));
+  if (!todo.length) return { map: existing, added: 0 };
   const id = process.env.SPOTIFY_CLIENT_ID;
   const secret = process.env.SPOTIFY_CLIENT_SECRET;
   if (!id || !secret) throw new Error("SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET missing in .env");
   const token = await getToken(id, secret);
 
-  const artists = data.topArtists.filter((a) => a.uri);
-  const uris = artists.map((a) => a.uri);
+  const uris = todo.map((p) => p.uri);
   const uriToArtistId = new Map();
   for (let i = 0; i < uris.length; i += 50) {
     const chunk = uris.slice(i, i + 50);
@@ -75,12 +104,12 @@ async function fetchGenresFromSpotify(data) {
     console.log(`  artists ${Math.min(i + 50, allIds.length)}/${allIds.length}`);
   }
 
-  const nameToGenres = {};
-  for (const a of data.topArtists) {
-    const aid = uriToArtistId.get(a.uri);
-    nameToGenres[a.a] = (aid ? idToGenres.get(aid) : []) || [];
+  const map = { ...existing };
+  for (const p of todo) {
+    const aid = uriToArtistId.get(p.uri);
+    map[p.a] = (aid ? idToGenres.get(aid) : []) || [];
   }
-  return nameToGenres;
+  return { map, added: todo.length };
 }
 
 function ymBetween(first, last) {
@@ -168,6 +197,25 @@ async function aggregateGenreTimeSeries(nameToGenres) {
     g: g.g, first: firstHeard.get(g.g), plays: g.plays, ms: g.ms,
   })).sort((a, b) => a.first.localeCompare(b.first));
 
+  // Peak month per top-15 genre: the month where this genre claimed the highest share
+  // of that month's total genre-attributed plays. Requires ≥20 plays in the month
+  // so very early, sparse months don't produce misleading 100%-share peaks.
+  const ymList = [...byMonth.keys()].sort();
+  const peakArr = topGenres.slice(0, 15).map((g) => {
+    let best = { ym: null, share: 0, plays: 0 };
+    for (const ym of ymList) {
+      const mMap = byMonth.get(ym);
+      if (!mMap) continue;
+      let monthTotal = 0;
+      for (const v of mMap.values()) monthTotal += v;
+      if (monthTotal < 20) continue;
+      const p = mMap.get(g.g) || 0;
+      const share = p / monthTotal;
+      if (share > best.share) best = { ym, share, plays: p };
+    }
+    return { g: g.g, ym: best.ym, share: best.share, plays: best.plays, totalPlays: g.plays };
+  }).filter((x) => x.ym);
+
   // Per-genre yearly plays for the top 60 (used by treemap trend + streamgraph).
   // Kept compact: just an array aligned to yearsArr.
   const topNames = topGenres.slice(0, 60).map((x) => x.g);
@@ -203,6 +251,7 @@ async function aggregateGenreTimeSeries(nameToGenres) {
     topPerYear,
     diversity,
     firstHeard: firstHeardArr,
+    peak: peakArr,
     years: yearsArr,
     yearTotals,
     yearlyByGenre,
@@ -213,18 +262,23 @@ async function main() {
   await loadEnv();
   const data = JSON.parse(await readFile(DATA, "utf8"));
 
-  let nameToGenres;
+  const pool = await buildArtistPool();
+  console.log(`Artist pool: ${pool.length} candidates (top ${ARTIST_POOL_SIZE} by full plays, ≥${MIN_POOL_PLAYS} plays)`);
+
+  let existing = {};
   if (existsSync(CACHE)) {
-    console.log("Using cached artist→genres map from public/artist-genres.json");
-    nameToGenres = JSON.parse(await readFile(CACHE, "utf8"));
-  } else {
-    console.log("Fetching genres from Spotify API…");
-    nameToGenres = await fetchGenresFromSpotify(data);
+    existing = JSON.parse(await readFile(CACHE, "utf8"));
+    console.log(`  Cache has ${Object.keys(existing).length} artists`);
+  }
+  const { map: nameToGenres, added } = await fetchGenresForPool(pool, existing);
+  if (added > 0) {
     await writeFile(CACHE, JSON.stringify(nameToGenres));
-    console.log(`  Cached to ${CACHE}`);
+    console.log(`  Fetched ${added} new artists → ${CACHE}`);
+  } else {
+    console.log(`  All pool artists already cached`);
   }
   const enriched = Object.values(nameToGenres).filter((g) => g.length).length;
-  console.log(`Have genres for ${enriched} artists`);
+  console.log(`Have genres for ${enriched} / ${Object.keys(nameToGenres).length} artists`);
 
   // attach to topArtists
   for (const a of data.topArtists) a.genres = nameToGenres[a.a] || [];
