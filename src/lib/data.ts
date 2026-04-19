@@ -118,7 +118,10 @@ export interface DataBundle {
 let cache: DataBundle | null = null;
 export async function loadData(): Promise<DataBundle> {
   if (cache) return cache;
-  const res = await fetch(`${import.meta.env.BASE_URL}data.json`);
+  const user = (window as unknown as { __SPOTIFY_VIZ_USER__?: string }).__SPOTIFY_VIZ_USER__;
+  const base = import.meta.env.BASE_URL;
+  const url = user ? `${base}${user}/data.json` : `${base}data.json`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`data.json fetch failed: ${res.status}`);
   cache = (await res.json()) as DataBundle;
   return cache;

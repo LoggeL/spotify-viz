@@ -86,9 +86,11 @@ const VIZ: VizDef[] = [
 async function main() {
   const app = document.querySelector<HTMLDivElement>("#app")!;
 
+  const user = (window as unknown as { __SPOTIFY_VIZ_USER__?: string }).__SPOTIFY_VIZ_USER__;
+  const heading = user ? `Spotify Listening Report <span class="user-tag">· ${user}</span>` : `Spotify Listening Report`;
   app.innerHTML = `
     <header>
-      <h1>Spotify Listening Report</h1>
+      <h1>${heading}</h1>
       <p class="lead" id="span">loading data…</p>
       <div class="stats" id="stats"></div>
     </header>

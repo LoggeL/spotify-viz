@@ -8,4 +8,5 @@ dist
 
 # raw spotify export stays local (huge + private)
 data/raw/
-# public/data.json is committed so GH Actions can build without raw
+data/raw-*/
+# public/data.json (and per-user variants) are committed so GH Actions can build without raw

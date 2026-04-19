@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const RAW_DIR = path.join(ROOT, "data/raw/Spotify Extended Streaming History");
-const OUT_DIR = path.join(ROOT, "public");
-const OUT_FILE = path.join(OUT_DIR, "data.json");
+const RAW_DIR = process.env.RAW_DIR || path.join(ROOT, "data/raw/Spotify Extended Streaming History");
+const OUT_FILE = process.env.OUT_FILE || path.join(ROOT, "public", "data.json");
+const OUT_DIR = path.dirname(OUT_FILE);
 
 const MIN_MS = 30_000;
 

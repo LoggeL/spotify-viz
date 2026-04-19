@@ -8,10 +8,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const DATA = path.join(ROOT, "public/data.json");
-const CACHE = path.join(ROOT, "public/artist-genres.json");
+const DATA = process.env.DATA_FILE || path.join(ROOT, "public/data.json");
+const CACHE = process.env.CACHE_FILE || path.join(ROOT, "public/artist-genres.json");
 const ENV = path.join(ROOT, ".env");
-const RAW_DIR = path.join(ROOT, "data/raw/Spotify Extended Streaming History");
+const RAW_DIR = process.env.RAW_DIR || path.join(ROOT, "data/raw/Spotify Extended Streaming History");
 const MIN_MS = 30_000;
 
 async function loadEnv() {
