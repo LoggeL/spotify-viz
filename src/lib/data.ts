@@ -99,6 +99,7 @@ export interface DataBundle {
   genres?: {
     top: {
       g: string; plays: number; ms: number; artists: number; sampleArtists: string[];
+      topTracks?: { a: string; t: string; plays: number; ms: number }[];
       trend: number; lastShare: number; avgEarlierShare: number;
     }[];
     stackedGenres: string[];

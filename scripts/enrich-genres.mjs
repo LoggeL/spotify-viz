@@ -128,7 +128,7 @@ async function aggregateGenreTimeSeries(nameToGenres) {
   const byYear = new Map(); // year -> Map<genre, {plays, ms}>
   const byMonth = new Map(); // ym -> Map<genre, plays>
   const firstHeard = new Map(); // genre -> earliest ts
-  const byGenre = new Map(); // genre -> {plays, ms, artists:Set}
+  const byGenre = new Map(); // genre -> {plays, ms, artists:Set, tracks:Map}
   const years = new Set();
   const diversityPerYear = new Map(); // year -> Set<genre>
   for (const f of files) {
@@ -152,9 +152,14 @@ async function aggregateGenreTimeSeries(nameToGenres) {
       for (const g of gens) {
         dSet.add(g);
         if (!firstHeard.has(g) || r.ts < firstHeard.get(g)) firstHeard.set(g, r.ts);
-        if (!byGenre.has(g)) byGenre.set(g, { plays: 0, ms: 0, artists: new Set() });
+        if (!byGenre.has(g)) byGenre.set(g, { plays: 0, ms: 0, artists: new Set(), tracks: new Map() });
         const t = byGenre.get(g);
         t.plays += 1; t.ms += ms; t.artists.add(a);
+        const trackKey = `${a} \u0000 ${r.master_metadata_track_name}`;
+        const trackRec = t.tracks.get(trackKey) || { a, t: r.master_metadata_track_name, plays: 0, ms: 0 };
+        trackRec.plays += 1;
+        trackRec.ms += ms;
+        t.tracks.set(trackKey, trackRec);
         const yg = yMap.get(g) || { plays: 0, ms: 0 };
         yg.plays += 1; yg.ms += ms;
         yMap.set(g, yg);
@@ -164,7 +169,14 @@ async function aggregateGenreTimeSeries(nameToGenres) {
   }
   const yearsArr = [...years].sort();
   const topGenres = [...byGenre.entries()]
-    .map(([g, v]) => ({ g, plays: v.plays, ms: v.ms, artists: v.artists.size, sampleArtists: [...v.artists].slice(0, 6) }))
+    .map(([g, v]) => ({
+      g,
+      plays: v.plays,
+      ms: v.ms,
+      artists: v.artists.size,
+      sampleArtists: [...v.artists].slice(0, 6),
+      topTracks: [...v.tracks.values()].sort((a, b) => b.plays - a.plays || b.ms - a.ms).slice(0, 5),
+    }))
     .sort((x, y) => y.plays - x.plays);
 
   // Stacked area data: top 25 genres, remaining bundled into "other".

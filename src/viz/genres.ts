@@ -48,7 +48,8 @@ export function renderGenres(data: DataBundle, n = 25): SVGSVGElement | HTMLElem
     svg.appendChild(rect(barStart, y + 9, barMax, rowH - 18, { fill: "#f4f4f1" }));
     const bar = rect(barStart, y + 9, Math.max(1, barW), rowH - 18, { fill: C_ACCENT });
     const sampleList = r.sampleArtists.slice(0, 4).join(", ");
-    attachHover(bar, `${r.g}  ${fmtNum(r.plays)} plays · ${fmtHours(r.ms)} · ${r.artists} artists  —  e.g. ${sampleList}`);
+    const topTracks = (r.topTracks || []).slice(0, 5).map((x) => `${x.a} – ${x.t} (${fmtNum(x.plays)})`).join("\n");
+    attachHover(bar, `${r.g}  ${fmtNum(r.plays)} plays · ${fmtHours(r.ms)} · ${r.artists} artists  —  e.g. ${sampleList}${topTracks ? `\n\nTop songs:\n${topTracks}` : ""}`);
     svg.appendChild(bar);
 
     svg.appendChild(text(barStart + barMax + 10, y + 17, fmtNum(r.plays), {
