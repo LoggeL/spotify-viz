@@ -132,19 +132,22 @@ export async function loadData(): Promise<DataBundle> {
   return cache;
 }
 
-export function fmtHours(ms: number): string {
+export function fmtHours(ms: number | null | undefined): string {
+  if (typeof ms !== "number" || !Number.isFinite(ms)) return "—";
   const h = ms / 3600_000;
   if (h >= 1) return `${h.toFixed(1)} h`;
   return `${(ms / 60_000).toFixed(0)} min`;
 }
 
-export function fmtHoursShort(ms: number): string {
+export function fmtHoursShort(ms: number | null | undefined): string {
+  if (typeof ms !== "number" || !Number.isFinite(ms)) return "—";
   const h = ms / 3600_000;
   if (h >= 10) return `${h.toFixed(0)}h`;
   if (h >= 1) return `${h.toFixed(1)}h`;
   return `${(ms / 60_000).toFixed(0)}m`;
 }
 
-export function fmtNum(n: number): string {
+export function fmtNum(n: number | null | undefined): string {
+  if (typeof n !== "number" || !Number.isFinite(n)) return "—";
   return n.toLocaleString("de-DE");
 }
