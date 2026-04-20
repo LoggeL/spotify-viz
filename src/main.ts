@@ -25,6 +25,7 @@ import { renderDayHist } from "./viz/day-hist";
 import { renderYearHours } from "./viz/year-hours";
 import { renderGenres } from "./viz/genres";
 import { renderGenreCloud } from "./viz/genre-cloud";
+import { renderGenreGuide } from "./viz/genre-guide";
 import { renderGenreEvolution } from "./viz/genre-evolution";
 import { renderGenrePerYear } from "./viz/genre-per-year";
 import { renderGenreDiversity } from "./viz/genre-diversity";
@@ -56,6 +57,7 @@ const VIZ: VizDef[] = [
   { id: "discovery", title: "Discovery Rate", subtitle: "neue artists pro monat — erstes mal gehört", render: renderDiscovery },
   { id: "genres", title: "Top Genres", subtitle: "ranked genres aus Spotify-API (top-1500 artists)", render: renderGenres },
   { id: "genre-cloud", title: "Genre Cloud", subtitle: "alle genres gewichtet nach plays", render: renderGenreCloud },
+  { id: "genre-guide", title: "Genre Guide", subtitle: "top genres mit top songs + beispiel-artists", render: renderGenreGuide },
   { id: "genre-treemap", title: "Genre Market Map", subtitle: "treemap · fläche = plays · blöcke = super-kategorie", render: renderGenreTreemap },
   { id: "genre-stream", title: "Genre Stream", subtitle: "smooth stacked areas · share per jahr (normalized 0–100%)", render: renderGenreStream },
   { id: "genre-sunburst", title: "Genre Hierarchy", subtitle: "sunburst · super-kategorien → einzelne genres", render: renderGenreSunburst },
