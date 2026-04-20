@@ -635,10 +635,14 @@ async function main() {
   const topByPlays = topArtists[0];
   const topByHours = topArtists.slice().sort((a, b) => b.ms - a.ms)[0];
 
-  // most skipped artist (absolute count)
-  const mostSkipped = [...artistSkips.entries()]
-    .map(([a, s]) => ({ a, s }))
-    .sort((x, y) => y.s - x.s)[0];
+  // highest skip rate among artists with at least p25 listens/exposures
+  const expValues = [...artistAny.values()].sort((a, b) => a - b);
+  const p25Idx = Math.max(0, Math.floor((expValues.length - 1) * 0.25));
+  const minSkipExp = expValues[p25Idx] || 0;
+  const mostSkipped = [...artistAny.entries()]
+    .map(([a, exp]) => ({ a, exp, skips: artistSkips.get(a) || 0, rate: exp ? (artistSkips.get(a) || 0) / exp : 0 }))
+    .filter((x) => x.exp >= minSkipExp)
+    .sort((x, y) => y.rate - x.rate || y.exp - x.exp)[0];
 
   // first played ever
   const firstTrack = plays[0];
@@ -664,7 +668,7 @@ async function main() {
     biggestYear,
     topByPlays: { a: topByPlays?.a, plays: topByPlays?.plays, ms: topByPlays?.ms },
     topByHours: { a: topByHours?.a, plays: topByHours?.plays, ms: topByHours?.ms },
-    mostSkipped: mostSkipped ? { a: mostSkipped.a, n: mostSkipped.s } : null,
+    mostSkipped: mostSkipped ? { a: mostSkipped.a, rate: mostSkipped.rate, exp: mostSkipped.exp, minExp: minSkipExp } : null,
     firstEver: firstTrack ? { ts: firstTrack.ts, artist: firstTrack.a, track: firstTrack.t } : null,
   };
 

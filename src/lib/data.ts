@@ -53,7 +53,7 @@ export interface Records {
   biggestYear: { y: string; ms: number; plays: number; artists: number };
   topByPlays: { a: string; plays: number; ms: number };
   topByHours: { a: string; plays: number; ms: number };
-  mostSkipped: { a: string; n: number } | null;
+  mostSkipped?: { a: string; n?: number; rate: number; exp: number; minExp: number } | null;
   firstEver: { ts: string; artist: string; track: string } | null;
 }
 

@@ -90,9 +90,9 @@ export function renderRecords(data: DataBundle): HTMLElement {
       detail: `${fmtHours(r.topByHours.ms)} · ${fmtNum(r.topByHours.plays)} plays`,
     },
     ...(r.mostSkipped ? [{
-      kind: "öftester skip",
+      kind: "höchste skip-rate",
       headline: r.mostSkipped.a,
-      detail: `${fmtNum(r.mostSkipped.n)}× weggedrückt`,
+      detail: `${(r.mostSkipped.rate * 100).toFixed(1)}% skips · ${fmtNum(r.mostSkipped.exp)} listens (min p25: ${fmtNum(r.mostSkipped.minExp)})`,
       tone: "warn" as const,
     }] : []),
     {
