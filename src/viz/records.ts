@@ -89,12 +89,25 @@ export function renderRecords(data: DataBundle): HTMLElement {
       headline: r.topByHours.a,
       detail: `${fmtHours(r.topByHours.ms)} · ${fmtNum(r.topByHours.plays)} plays`,
     },
-    ...(r.mostSkipped ? [{
-      kind: "höchste skip-rate",
-      headline: r.mostSkipped.a,
-      detail: `${(r.mostSkipped.rate * 100).toFixed(1)}% skips · ${fmtNum(r.mostSkipped.exp)} listens (min p25: ${fmtNum(r.mostSkipped.minExp)})`,
-      tone: "warn" as const,
-    }] : []),
+    ...(r.mostSkipped ? [(() => {
+      const ms = r.mostSkipped!;
+      // new schema: rate + exp + minExp; old schema: just n (absolute skip count)
+      const hasRate = typeof ms.rate === "number" && Number.isFinite(ms.rate);
+      if (hasRate) {
+        return {
+          kind: "höchste skip-rate",
+          headline: ms.a,
+          detail: `${(ms.rate * 100).toFixed(1)}% skips · ${fmtNum(ms.exp)} listens (min p25: ${fmtNum(ms.minExp)})`,
+          tone: "warn" as const,
+        };
+      }
+      return {
+        kind: "öftester skip",
+        headline: ms.a,
+        detail: `${fmtNum(ms.n)}× weggedrückt`,
+        tone: "warn" as const,
+      };
+    })()] : []),
     {
       kind: "längster einzel-play",
       headline: fmtHours(r.maxSingleMs.ms),
