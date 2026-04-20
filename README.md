@@ -39,6 +39,24 @@ npm run preprocess   # liest raw, schreibt public/data.json (~130 KB)
 npm run dev          # öffnet http://127.0.0.1:5180
 ```
 
+## Multi-report rebuilds
+
+Wenn du Änderungen an berechneten Daten hast (z. B. Records, neue Aggregationen, Genre-Metriken), musst du die betroffenen `data.json` Dateien neu erzeugen. Dafür gibt es jetzt:
+
+```bash
+cp reports.config.example.json reports.config.json
+# Pfade zu den entpackten Spotify-Exports pro User eintragen
+npm run rebuild-all
+```
+
+Das Script macht pro konfiguriertem Report:
+- `preprocess`
+- optional `enrich-genres`
+- copy nach `public/<user>/data.json`
+- danach einen normalen `build`
+
+Für reine UI-/Code-Änderungen ohne neue Datenfelder reicht weiter `npm run build`.
+
 ## Bauen für prod
 
 ```bash

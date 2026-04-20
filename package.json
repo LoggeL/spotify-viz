@@ -6,6 +6,7 @@
   "scripts": {
     "preprocess": "node scripts/preprocess.mjs",
     "enrich-genres": "node scripts/enrich-genres.mjs",
+    "rebuild-all": "node scripts/rebuild-all.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"

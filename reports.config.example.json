@@ -1,0 +1,32 @@
+{
+  "reports": [
+    {
+      "id": "logge",
+      "rawDir": "../path/to/logge/Spotify Extended Streaming History",
+      "outFile": "logge/data.json",
+      "publicFile": "public/logge/data.json",
+      "genreCache": "public/logge/artist-genres.json"
+    },
+    {
+      "id": "jonas",
+      "rawDir": "../path/to/jonas/Spotify Extended Streaming History",
+      "outFile": "jonas/data.json",
+      "publicFile": "public/jonas/data.json",
+      "genreCache": "public/jonas/artist-genres.json"
+    },
+    {
+      "id": "tojokn",
+      "rawDir": "../path/to/tojokn/Spotify Extended Streaming History",
+      "outFile": "tojokn/data.json",
+      "publicFile": "public/tojokn/data.json",
+      "genreCache": "public/tojokn/artist-genres.json"
+    },
+    {
+      "id": "noel",
+      "rawDir": "/tmp/noel-spotify/Spotify Extended Streaming History",
+      "outFile": "noel/data.json",
+      "publicFile": "public/noel/data.json",
+      "genreCache": "public/noel/artist-genres.json"
+    }
+  ]
+}
