@@ -14,7 +14,6 @@ import { renderCalendar } from "./viz/calendar";
 import { renderSessions } from "./viz/sessions";
 import { renderSessionByHour } from "./viz/session-by-hour";
 import { renderFirstPlays } from "./viz/first-plays";
-import { renderCountries } from "./viz/countries";
 import { renderEndReasons } from "./viz/end-reasons";
 import { renderClockSpiral } from "./viz/clock-spiral";
 import { renderHoursPerYear } from "./viz/hours-per-year";
@@ -80,7 +79,6 @@ const VIZ: VizDef[] = [
   { id: "session-hour", title: "Session Duration by Hour", subtitle: "avg session length je start-stunde", render: renderSessionByHour },
   { id: "loyalty", title: "Artist Loyalty", subtitle: "active months per top artist", render: renderLoyalty },
   { id: "first-plays", title: "First-Play Timeline", subtitle: "when each top-25 artist entered rotation", render: renderFirstPlays },
-  { id: "countries", title: "Geographic Origin", subtitle: "plays by connection country", render: renderCountries },
 ];
 
 async function main() {
