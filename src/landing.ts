@@ -6,6 +6,7 @@ const USERS: UserMeta[] = [
   { id: "logge", display: "logge" },
   { id: "tojokn", display: "tojokn" },
   { id: "jonas", display: "jonas" },
+  { id: "noel", display: "noel" },
 ];
 
 interface Totals {
