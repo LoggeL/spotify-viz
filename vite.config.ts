@@ -9,6 +9,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
+        compare: resolve(__dirname, "compare/index.html"),
         logge: resolve(__dirname, "logge/index.html"),
         tojokn: resolve(__dirname, "tojokn/index.html"),
         jonas: resolve(__dirname, "jonas/index.html"),

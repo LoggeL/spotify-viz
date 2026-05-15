@@ -34,6 +34,7 @@ async function main() {
     <header class="landing-head">
       <h1>Spotify Listening Report</h1>
       <p class="lead">data-driven visualisierungen einer persönlichen Spotify Extended Streaming History.<br/>kein OAuth, kein server, kein tracking — alles lokal aus dem Spotify-exportzip aggregiert.</p>
+      <a class="landing-compare-link" href="${import.meta.env.BASE_URL}compare/">Compare two users →</a>
     </header>
     <div class="landing-grid" id="grid"></div>
     <section class="landing-about">
