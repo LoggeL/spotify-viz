@@ -783,18 +783,18 @@ svg.viz a:hover rect { filter: brightness(1.08); }
 }
 .score-parts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px;
 }
 .score-parts div {
   border: 1px solid var(--rule);
   border-radius: 6px;
   background: var(--panel);
-  padding: 18px 18px 16px;
+  padding: 16px 16px 14px;
 }
 .score-parts b {
   display: block;
-  font: 700 1.65rem/1 "JetBrains Mono", monospace;
+  font: 700 1.45rem/1 "JetBrains Mono", monospace;
   margin-bottom: 8px;
 }
 .score-parts span {
@@ -943,6 +943,109 @@ svg.viz a:hover rect { filter: brightness(1.08); }
   font-family: "JetBrains Mono", monospace;
   font-size: 0.82rem;
 }
+.compare-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.compare-bar-row {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.compare-bar-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.compare-bar {
+  position: relative;
+  height: 26px;
+  border-radius: 4px;
+  background: #f1f1ed;
+  overflow: hidden;
+}
+.compare-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(29, 185, 84, 0.72);
+}
+.compare-bar.b span { background: rgba(17, 20, 24, 0.72); }
+.compare-bar b {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 8px;
+  font: 700 0.74rem "JetBrains Mono", monospace;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.compare-bar-legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 2px;
+  color: var(--muted);
+  font: 700 0.68rem "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.compare-bar-legend .a { color: var(--accent); }
+.compare-bar-legend .b { color: var(--ink); }
+.compare-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.compare-table-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(86px, 0.7fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 11px;
+  border-bottom: 1px solid #f1f1ed;
+  background: #fff;
+  min-width: 0;
+}
+.compare-table-row:last-child { border-bottom: none; }
+.compare-table-row.head {
+  background: #fafaf8;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+}
+.compare-table-row > div {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-2);
+  font-size: 0.78rem;
+}
+.compare-table-row > div:first-child {
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  font-size: 0.72rem;
+}
+.compare-table-row > div:nth-child(2),
+.compare-table-row > div:nth-child(3),
+.compare-table-row > div:nth-child(4) {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+.compare-table-row > div:nth-child(4) { color: var(--muted); }
 
 @media (max-width: 860px) {
   .compare-head { align-items: flex-start; flex-direction: column; }
@@ -950,6 +1053,9 @@ svg.viz a:hover rect { filter: brightness(1.08); }
   .compare-grid { grid-template-columns: 1fr; }
   .score-parts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .norm-row { grid-template-columns: 1fr; }
+  .compare-bar-row { grid-template-columns: 1fr; }
+  .compare-table-row { grid-template-columns: 1fr 1fr; }
+  .compare-table-row > div:first-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 560px) {
@@ -964,6 +1070,7 @@ svg.viz a:hover rect { filter: brightness(1.08); }
   .overlap-ranks,
   .overlap-hours { justify-content: flex-start; }
   .only-list li { flex-direction: column; gap: 3px; }
+  .compare-table-row { grid-template-columns: 1fr; }
 }
 
 .tip {

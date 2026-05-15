@@ -1,6 +1,6 @@
 import "./styles.css";
 import { fmtHours, fmtNum, type DataBundle, type TopArtist, type TopTrack } from "./lib/data";
-import { attachHover, C_ACCENT, C_GRID, C_INK, C_MUTED, C_RULE, mkSvg, rect, text } from "./lib/util";
+import { attachHover, C_ACCENT, C_GRID, C_INK, C_MUTED, C_RULE, line, mkSvg, path, rect, text } from "./lib/util";
 
 interface UserMeta { id: UserId; display: string; }
 type UserId = "logge" | "tojokn" | "jonas" | "noel" | "julian";
@@ -18,9 +18,14 @@ interface OverlapRow {
   bRank: number;
   aMs: number;
   bMs: number;
+  aPlays?: number;
+  bPlays?: number;
 }
 
 type RankedArtist = TopArtist & { rank: number };
+type SeriesRow = { key: string; a: number; b: number; label?: string };
+type BarRow = { label: string; a: number; b: number; fmt?: (n: number) => string };
+type NamedMetric = { label: string; a: string; b: string; detail?: string };
 
 const USERS: UserMeta[] = [
   { id: "logge", display: "logge" },
@@ -45,8 +50,24 @@ function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
 
+function pct1(n: number): string {
+  return `${(n * 100).toFixed(1)}%`;
+}
+
 function hours(ms: number): number {
   return ms / 3_600_000;
+}
+
+function plays(n: number): string {
+  return fmtNum(Math.round(n));
+}
+
+function monthLabel(ym: string): string {
+  return ym.slice(2).replace("-", "/");
+}
+
+function safeDiv(a: number, b: number): number {
+  return b ? a / b : 0;
 }
 
 function spanDays(data: DataBundle): number {
@@ -103,7 +124,7 @@ function overlapTracks(a: DataBundle, b: DataBundle): OverlapRow[] {
   return a.topTracks.slice(0, TOP_N).flatMap((ar, i) => {
     const key = `${ar.a.toLowerCase()}|${ar.t.toLowerCase()}`;
     const br = bm.get(key);
-    return br ? [{ key, label: ar.t, sub: ar.a, aRank: i + 1, bRank: br.rank, aMs: ar.ms, bMs: br.ms }] : [];
+    return br ? [{ key, label: ar.t, sub: ar.a, aRank: i + 1, bRank: br.rank, aMs: ar.ms, bMs: br.ms, aPlays: ar.plays, bPlays: br.plays }] : [];
   }).sort((x, y) => (x.aRank + x.bRank) - (y.aRank + y.bRank));
 }
 
@@ -143,6 +164,32 @@ function compatibility(a: DataBundle, b: DataBundle): { score: number; artist: n
   return { score, artist, track, genre, clock };
 }
 
+function advancedCompatibility(a: DataBundle, b: DataBundle) {
+  const base = compatibility(a, b);
+  const weekday = 1 - distributionDistance(
+    a.weekday.map((r) => r.ms),
+    b.weekday.map((r) => r.ms),
+  );
+  const platform = 1 - mapDistributionDistance(platformTotals(a), platformTotals(b));
+  const shuffle = 1 - Math.abs(safeDiv(a.shuffle.shuffleMs, a.shuffle.shuffleMs + a.shuffle.intentionalMs) - safeDiv(b.shuffle.shuffleMs, b.shuffle.shuffleMs + b.shuffle.intentionalMs));
+  const skip = 1 - Math.min(1, Math.abs((a.skipStats?.globalRate ?? 0) - (b.skipStats?.globalRate ?? 0)) / 0.6);
+  const discovery = 1 - Math.min(1, Math.abs(discoveryRate(a) - discoveryRate(b)) / Math.max(discoveryRate(a), discoveryRate(b), 0.01));
+  const concentration = 1 - Math.min(1, Math.abs(topShare(a, 10) - topShare(b, 10)) / Math.max(topShare(a, 10), topShare(b, 10), 0.01));
+  const score = Math.round((
+    base.artist * 0.22 +
+    base.track * 0.16 +
+    base.genre * 0.16 +
+    base.clock * 0.12 +
+    weekday * 0.08 +
+    platform * 0.07 +
+    shuffle * 0.06 +
+    skip * 0.05 +
+    discovery * 0.04 +
+    concentration * 0.04
+  ) * 100);
+  return { ...base, score, weekday, platform, shuffle, skip, discovery, concentration };
+}
+
 function normalizedClock(data: DataBundle): number[] {
   const vals = data.clock.flat();
   const total = vals.reduce((s, v) => s + v, 0) || 1;
@@ -155,6 +202,214 @@ function normalizedClockDistance(a: DataBundle, b: DataBundle): number {
   let diff = 0;
   for (let i = 0; i < av.length; i++) diff += Math.abs(av[i] - bv[i]);
   return Math.min(1, diff / 2);
+}
+
+function distributionDistance(aVals: number[], bVals: number[]): number {
+  const at = aVals.reduce((s, v) => s + v, 0) || 1;
+  const bt = bVals.reduce((s, v) => s + v, 0) || 1;
+  const n = Math.max(aVals.length, bVals.length);
+  let diff = 0;
+  for (let i = 0; i < n; i++) diff += Math.abs((aVals[i] ?? 0) / at - (bVals[i] ?? 0) / bt);
+  return Math.min(1, diff / 2);
+}
+
+function mapDistributionDistance(a: Map<string, number>, b: Map<string, number>): number {
+  const keys = Array.from(new Set([...a.keys(), ...b.keys()]));
+  return distributionDistance(keys.map((k) => a.get(k) ?? 0), keys.map((k) => b.get(k) ?? 0));
+}
+
+function platformTotals(data: DataBundle): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const row of data.platformStack) {
+    const ms = row._ms ?? {};
+    for (const [k, v] of Object.entries(ms)) {
+      if (k !== "year" && typeof v === "number") m.set(k, (m.get(k) ?? 0) + v);
+    }
+  }
+  return m;
+}
+
+function discoveryRate(data: DataBundle): number {
+  return safeDiv(data.discovery.reduce((s, r) => s + r.n, 0), data.totals.totalPlays);
+}
+
+function topShare(data: DataBundle, n: number): number {
+  return safeDiv(data.topArtists.slice(0, n).reduce((s, r) => s + r.ms, 0), data.totals.totalMs);
+}
+
+function rowsFromUnion(aRows: { ym: string; ms: number }[], bRows: { ym: string; ms: number }[]): SeriesRow[] {
+  const keys = Array.from(new Set([...aRows.map((r) => r.ym), ...bRows.map((r) => r.ym)])).sort();
+  const am = new Map(aRows.map((r) => [r.ym, r.ms]));
+  const bm = new Map(bRows.map((r) => [r.ym, r.ms]));
+  return keys.map((key) => ({ key, a: hours(am.get(key) ?? 0), b: hours(bm.get(key) ?? 0), label: monthLabel(key) }));
+}
+
+function cumulativeRows(a: DataBundle, b: DataBundle): SeriesRow[] {
+  return rowsFromUnion(a.cumulative, b.cumulative);
+}
+
+function weekdayRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const at = a.weekday.reduce((s, r) => s + r.ms, 0) || 1;
+  const bt = b.weekday.reduce((s, r) => s + r.ms, 0) || 1;
+  return names.map((label, i) => ({ label, a: safeDiv(a.weekday[i]?.ms ?? 0, at), b: safeDiv(b.weekday[i]?.ms ?? 0, bt), fmt: pct1 }));
+}
+
+function platformRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const am = platformTotals(a);
+  const bm = platformTotals(b);
+  const keys = Array.from(new Set([...am.keys(), ...bm.keys()]));
+  const at = Array.from(am.values()).reduce((s, v) => s + v, 0) || 1;
+  const bt = Array.from(bm.values()).reduce((s, v) => s + v, 0) || 1;
+  return keys
+    .map((label) => ({ label, a: safeDiv(am.get(label) ?? 0, at), b: safeDiv(bm.get(label) ?? 0, bt), fmt: pct1 }))
+    .sort((x, y) => (y.a + y.b) - (x.a + x.b));
+}
+
+function shuffleRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const at = a.shuffle.shuffleMs + a.shuffle.intentionalMs || 1;
+  const bt = b.shuffle.shuffleMs + b.shuffle.intentionalMs || 1;
+  return [
+    { label: "shuffle", a: safeDiv(a.shuffle.shuffleMs, at), b: safeDiv(b.shuffle.shuffleMs, bt), fmt: pct1 },
+    { label: "intentional", a: safeDiv(a.shuffle.intentionalMs, at), b: safeDiv(b.shuffle.intentionalMs, bt), fmt: pct1 },
+  ];
+}
+
+function skipRows(a: DataBundle, b: DataBundle): BarRow[] {
+  return [
+    { label: "global skip rate", a: a.skipStats?.globalRate ?? 0, b: b.skipStats?.globalRate ?? 0, fmt: pct1 },
+    { label: "skips / 1k plays", a: safeDiv(a.skipStats?.globalSkips ?? 0, a.totals.totalPlays) * 1000, b: safeDiv(b.skipStats?.globalSkips ?? 0, b.totals.totalPlays) * 1000, fmt: (n) => n.toFixed(1) },
+    { label: "avg skip seconds", a: (a.skipStats?.avgSkipMs ?? 0) / 1000, b: (b.skipStats?.avgSkipMs ?? 0) / 1000, fmt: (n) => `${n.toFixed(1)}s` },
+  ];
+}
+
+function discoveryRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const aRecent = a.firstPlays.filter((r) => r.first.slice(0, 4) === a.totals.lastPlay.slice(0, 4)).length;
+  const bRecent = b.firstPlays.filter((r) => r.first.slice(0, 4) === b.totals.lastPlay.slice(0, 4)).length;
+  return [
+    { label: "new artists / 1k plays", a: discoveryRate(a) * 1000, b: discoveryRate(b) * 1000, fmt: (n) => n.toFixed(2) },
+    { label: "known artists", a: a.totals.uniqueArtists - a.firstPlays.length, b: b.totals.uniqueArtists - b.firstPlays.length, fmt: plays },
+    { label: "new in latest year", a: aRecent, b: bRecent, fmt: plays },
+  ];
+}
+
+function dayHistRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const at = a.dayHist.reduce((s, r) => s + r.n, 0) || 1;
+  const bt = b.dayHist.reduce((s, r) => s + r.n, 0) || 1;
+  const bm = new Map(b.dayHist.map((r) => [r.bucket, r.n]));
+  return a.dayHist.map((row) => ({ label: row.bucket, a: row.n / at, b: (bm.get(row.bucket) ?? 0) / bt, fmt: pct1 }));
+}
+
+function genreDiversityRows(a: DataBundle, b: DataBundle): SeriesRow[] {
+  const ar = a.genres?.diversity ?? [];
+  const br = b.genres?.diversity ?? [];
+  const years = Array.from(new Set([...ar.map((r) => r.year), ...br.map((r) => r.year)])).sort();
+  const am = new Map(ar.map((r) => [r.year, r.n]));
+  const bm = new Map(br.map((r) => [r.year, r.n]));
+  return years.map((key) => ({ key, a: am.get(key) ?? 0, b: bm.get(key) ?? 0, label: key }));
+}
+
+function topGenreRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const ag = a.genres?.top.slice(0, 10) ?? [];
+  const bg = b.genres?.top.slice(0, 10) ?? [];
+  const keys = Array.from(new Set([...ag.map((r) => r.g), ...bg.map((r) => r.g)])).slice(0, 16);
+  const am = new Map((a.genres?.top ?? []).map((r) => [r.g, safeDiv(r.ms, a.genres?.totalTopMs ?? a.totals.totalMs)]));
+  const bm = new Map((b.genres?.top ?? []).map((r) => [r.g, safeDiv(r.ms, b.genres?.totalTopMs ?? b.totals.totalMs)]));
+  return keys.map((label) => ({ label, a: am.get(label) ?? 0, b: bm.get(label) ?? 0, fmt: pct1 })).sort((x, y) => (y.a + y.b) - (x.a + x.b));
+}
+
+function topAlbumsOverlap(a: DataBundle, b: DataBundle): OverlapRow[] {
+  const bm = new Map(b.topAlbums.slice(0, TOP_N).map((row, i) => [`${row.a.toLowerCase()}|${row.al.toLowerCase()}`, { ...row, rank: i + 1 }]));
+  return a.topAlbums.slice(0, TOP_N).flatMap((ar, i) => {
+    const key = `${ar.a.toLowerCase()}|${ar.al.toLowerCase()}`;
+    const br = bm.get(key);
+    return br ? [{ key, label: ar.al, sub: ar.a, aRank: i + 1, bRank: br.rank, aMs: ar.ms, bMs: br.ms }] : [];
+  }).sort((x, y) => (x.aRank + x.bRank) - (y.aRank + y.bRank));
+}
+
+function commonWeighted(rows: OverlapRow[], by: "hours" | "plays" = "hours"): OverlapRow[] {
+  return [...rows].sort((x, y) => {
+    const xs = by === "hours" ? x.aMs + x.bMs : (x.aPlays ?? 0) + (x.bPlays ?? 0);
+    const ys = by === "hours" ? y.aMs + y.bMs : (y.aPlays ?? 0) + (y.bPlays ?? 0);
+    return ys - xs;
+  });
+}
+
+function yearlyDeltaRows(a: DataBundle, b: DataBundle): NamedMetric[] {
+  const years = Array.from(new Set([...a.hoursPerYear.map((r) => r.y), ...b.hoursPerYear.map((r) => r.y)])).sort();
+  const am = new Map(a.hoursPerYear.map((r) => [r.y, r.ms]));
+  const bm = new Map(b.hoursPerYear.map((r) => [r.y, r.ms]));
+  return years.map((y) => ({ y, av: am.get(y) ?? 0, bv: bm.get(y) ?? 0 }))
+    .sort((x, y) => Math.abs(y.av - y.bv) - Math.abs(x.av - x.bv))
+    .slice(0, 8)
+    .map((r) => ({ label: r.y, a: fmtHours(r.av), b: fmtHours(r.bv), detail: `${fmtHours(Math.abs(r.av - r.bv))} delta` }));
+}
+
+function monthlyDeltaRows(a: DataBundle, b: DataBundle): NamedMetric[] {
+  const rows = rowsFromUnion(a.yearMonth, b.yearMonth);
+  return rows
+    .sort((x, y) => Math.abs(y.a - y.b) - Math.abs(x.a - x.b))
+    .slice(0, 10)
+    .map((r) => ({ label: r.key, a: `${r.a.toFixed(1)} h`, b: `${r.b.toFixed(1)} h`, detail: `${Math.abs(r.a - r.b).toFixed(1)} h delta` }));
+}
+
+function sessionRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const avgA = safeDiv(a.totals.totalMs, a.sessions.total);
+  const avgB = safeDiv(b.totals.totalMs, b.sessions.total);
+  const peakA = a.sessions.byHour.reduce((best, row) => row.count > best.count ? row : best, a.sessions.byHour[0] ?? { h: 0, count: 0, avgTracks: 0, avgMs: 0 });
+  const peakB = b.sessions.byHour.reduce((best, row) => row.count > best.count ? row : best, b.sessions.byHour[0] ?? { h: 0, count: 0, avgTracks: 0, avgMs: 0 });
+  return [
+    { label: "sessions", a: a.sessions.total, b: b.sessions.total, fmt: plays },
+    { label: "avg session min", a: avgA / 60_000, b: avgB / 60_000, fmt: (n) => n.toFixed(1) },
+    { label: "longest session h", a: hours(a.records.longestSession.ms), b: hours(b.records.longestSession.ms), fmt: (n) => n.toFixed(1) },
+    { label: "longest tracks", a: a.records.longestSessionByTracks.tracks, b: b.records.longestSessionByTracks.tracks, fmt: plays },
+    { label: "peak session hour", a: peakA.h, b: peakB.h, fmt: (n) => String(Math.round(n)).padStart(2, "0") },
+  ];
+}
+
+function recordRows(a: DataBundle, b: DataBundle): NamedMetric[] {
+  return [
+    { label: "longest day", a: `${fmtHours(a.records.longestDay.ms)} (${a.records.longestDay.d})`, b: `${fmtHours(b.records.longestDay.ms)} (${b.records.longestDay.d})` },
+    { label: "most plays day", a: `${fmtNum(a.records.mostPlaysDay.plays)} (${a.records.mostPlaysDay.d})`, b: `${fmtNum(b.records.mostPlaysDay.plays)} (${b.records.mostPlaysDay.d})` },
+    { label: "biggest month", a: `${fmtHours(a.records.biggestMonth.ms)} (${a.records.biggestMonth.ym})`, b: `${fmtHours(b.records.biggestMonth.ms)} (${b.records.biggestMonth.ym})` },
+    { label: "biggest year", a: `${fmtHours(a.records.biggestYear.ms)} (${a.records.biggestYear.y})`, b: `${fmtHours(b.records.biggestYear.ms)} (${b.records.biggestYear.y})` },
+    { label: "longest streak", a: `${a.records.longestStreak.days} days`, b: `${b.records.longestStreak.days} days` },
+    { label: "longest gap", a: `${a.records.longestGap.days} days`, b: `${b.records.longestGap.days} days` },
+    { label: "repeat champion", a: `${a.records.repeatChampion.n}x ${a.records.repeatChampion.track}`, b: `${b.records.repeatChampion.n}x ${b.records.repeatChampion.track}` },
+  ];
+}
+
+function concentrationRows(a: DataBundle, b: DataBundle): BarRow[] {
+  const shares = [1, 5, 10, 25, 50];
+  return shares.map((n) => ({ label: `top ${n} artists`, a: topShare(a, n), b: topShare(b, n), fmt: pct1 }));
+}
+
+function renderComparisonBars(rows: BarRow[], aName: string, bName: string): string {
+  return rows.map((row) => {
+    const max = Math.max(row.a, row.b, 0.001);
+    const fmt = row.fmt ?? ((n: number) => n.toFixed(1));
+    return `
+      <div class="compare-bar-row">
+        <div class="compare-bar-label">${escapeHtml(row.label)}</div>
+        <div class="compare-bar a"><span style="width:${(row.a / max) * 100}%"></span><b>${fmt(row.a)}</b></div>
+        <div class="compare-bar b"><span style="width:${(row.b / max) * 100}%"></span><b>${fmt(row.b)}</b></div>
+      </div>
+    `;
+  }).join("") + `<div class="compare-bar-legend"><span class="a">${escapeHtml(aName)}</span><span class="b">${escapeHtml(bName)}</span></div>`;
+}
+
+function renderMetricTable(rows: NamedMetric[], aName: string, bName: string): string {
+  return `<div class="compare-table">
+    <div class="compare-table-row head"><div>Metric</div><div>${escapeHtml(aName)}</div><div>${escapeHtml(bName)}</div><div></div></div>
+    ${rows.map((r) => `
+      <div class="compare-table-row">
+        <div>${escapeHtml(r.label)}</div>
+        <div>${escapeHtml(r.a)}</div>
+        <div>${escapeHtml(r.b)}</div>
+        <div>${escapeHtml(r.detail ?? "")}</div>
+      </div>
+    `).join("")}
+  </div>`;
 }
 
 function renderKpis(a: UserBundle, b: UserBundle): string {
@@ -253,6 +508,96 @@ function renderYearSvg(a: UserBundle, b: UserBundle): SVGSVGElement {
   return svg;
 }
 
+function renderPairedBarSvg(rows: SeriesRow[], aName: string, bName: string, title: string, fmt: (n: number) => string = (n) => n.toFixed(1)): SVGSVGElement {
+  const W = 900, H = 320, ml = 52, mr = 24, mt = 28, mb = 52;
+  const pw = W - ml - mr, ph = H - mt - mb;
+  const svg = mkSvg(W, H);
+  const max = Math.max(...rows.flatMap((r) => [r.a, r.b]), 1);
+  const niceMax = Math.ceil(max / 25) * 25 || 25;
+  for (let i = 0; i <= 5; i++) {
+    const v = niceMax * i / 5;
+    const y = mt + ph - (v / niceMax) * ph;
+    svg.appendChild(rect(ml, y, pw, 1, { fill: i === 0 ? C_RULE : C_GRID }));
+    svg.appendChild(text(ml - 8, y + 4, fmt(v), { "text-anchor": "end", class: "axis num" }));
+  }
+  const slot = pw / rows.length;
+  const barW = Math.max(1.8, Math.min(10, slot * 0.34));
+  const labelEvery = Math.max(1, Math.ceil(rows.length / 12));
+  rows.forEach((row, i) => {
+    const x = ml + i * slot + slot / 2;
+    const ah = row.a / niceMax * ph;
+    const bh = row.b / niceMax * ph;
+    const ar = rect(x - barW - 1, mt + ph - ah, barW, ah, { fill: C_ACCENT });
+    const br = rect(x + 1, mt + ph - bh, barW, bh, { fill: C_INK });
+    attachHover(ar, `${aName} ${row.key}: ${fmt(row.a)}`);
+    attachHover(br, `${bName} ${row.key}: ${fmt(row.b)}`);
+    svg.appendChild(ar);
+    svg.appendChild(br);
+    if (i % labelEvery === 0) svg.appendChild(text(x, H - mb + 18, row.label ?? row.key, { "text-anchor": "middle", class: "axis num" }));
+  });
+  svg.appendChild(text(ml, 14, title, { class: "axis-label" }));
+  svg.appendChild(text(W - mr - 152, 14, aName, { fill: C_ACCENT, "font-weight": 700 }));
+  svg.appendChild(text(W - mr - 82, 14, bName, { fill: C_INK, "font-weight": 700 }));
+  return svg;
+}
+
+function renderLineSvg(rows: SeriesRow[], aName: string, bName: string, title: string, fmt: (n: number) => string = (n) => n.toFixed(1)): SVGSVGElement {
+  const W = 900, H = 320, ml = 58, mr = 24, mt = 28, mb = 48;
+  const pw = W - ml - mr, ph = H - mt - mb;
+  const svg = mkSvg(W, H);
+  const max = Math.max(...rows.flatMap((r) => [r.a, r.b]), 1);
+  const niceMax = Math.ceil(max / 100) * 100 || 100;
+  for (let i = 0; i <= 5; i++) {
+    const v = niceMax * i / 5;
+    const y = mt + ph - (v / niceMax) * ph;
+    svg.appendChild(line(ml, y, W - mr, y, { stroke: i === 0 ? C_RULE : C_GRID, "stroke-width": 1 }));
+    svg.appendChild(text(ml - 8, y + 4, fmt(v), { "text-anchor": "end", class: "axis num" }));
+  }
+  const xAt = (i: number) => ml + (rows.length <= 1 ? pw / 2 : (i / (rows.length - 1)) * pw);
+  const yAt = (v: number) => mt + ph - (v / niceMax) * ph;
+  const d = (field: "a" | "b") => rows.map((r, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(2)},${yAt(r[field]).toFixed(2)}`).join(" ");
+  svg.appendChild(path(d("a"), { fill: "none", stroke: C_ACCENT, "stroke-width": 2.5 }));
+  svg.appendChild(path(d("b"), { fill: "none", stroke: C_INK, "stroke-width": 2.5 }));
+  const labelEvery = Math.max(1, Math.ceil(rows.length / 10));
+  rows.forEach((row, i) => {
+    if (i % labelEvery === 0) svg.appendChild(text(xAt(i), H - mb + 18, row.label ?? row.key, { "text-anchor": "middle", class: "axis num" }));
+  });
+  const last = rows[rows.length - 1];
+  if (last) {
+    attachHover(svg.appendChild(rect(W - mr - 1, yAt(last.a) - 5, 1, 10, { fill: C_ACCENT })), `${aName}: ${fmt(last.a)}`);
+    attachHover(svg.appendChild(rect(W - mr - 1, yAt(last.b) - 5, 1, 10, { fill: C_INK })), `${bName}: ${fmt(last.b)}`);
+  }
+  svg.appendChild(text(ml, 14, title, { class: "axis-label" }));
+  svg.appendChild(text(W - mr - 152, 14, aName, { fill: C_ACCENT, "font-weight": 700 }));
+  svg.appendChild(text(W - mr - 82, 14, bName, { fill: C_INK, "font-weight": 700 }));
+  return svg;
+}
+
+function renderLorenzSvg(a: UserBundle, b: UserBundle): SVGSVGElement {
+  const W = 520, H = 320, ml = 48, mr = 22, mt = 28, mb = 42;
+  const pw = W - ml - mr, ph = H - mt - mb;
+  const svg = mkSvg(W, H);
+  svg.appendChild(rect(ml, mt, pw, ph, { fill: "#fff", stroke: C_RULE }));
+  for (let i = 1; i < 5; i++) {
+    const x = ml + pw * i / 5;
+    const y = mt + ph * i / 5;
+    svg.appendChild(line(x, mt, x, mt + ph, { stroke: C_GRID, "stroke-width": 1 }));
+    svg.appendChild(line(ml, y, ml + pw, y, { stroke: C_GRID, "stroke-width": 1 }));
+  }
+  const xAt = (x: number) => ml + x * pw;
+  const yAt = (y: number) => mt + ph - y * ph;
+  const d = (rows: { x: number; y: number }[]) => `M${xAt(0)},${yAt(0)} ` + rows.map((r) => `L${xAt(r.x).toFixed(2)},${yAt(r.y).toFixed(2)}`).join(" ") + ` L${xAt(1)},${yAt(1)}`;
+  svg.appendChild(path(d(a.data.lorenz), { fill: "none", stroke: C_ACCENT, "stroke-width": 2.5 }));
+  svg.appendChild(path(d(b.data.lorenz), { fill: "none", stroke: C_INK, "stroke-width": 2.5 }));
+  svg.appendChild(line(ml, mt + ph, ml + pw, mt, { stroke: C_RULE, "stroke-width": 1.5, "stroke-dasharray": "4 4" }));
+  svg.appendChild(text(ml, 14, "ARTIST CONCENTRATION CURVE", { class: "axis-label" }));
+  svg.appendChild(text(ml + pw / 2, H - 8, "SHARE OF ARTISTS", { "text-anchor": "middle", class: "axis-label" }));
+  svg.appendChild(text(8, mt + ph / 2, "SHARE OF HOURS", { transform: `rotate(-90 8 ${mt + ph / 2})`, "text-anchor": "middle", class: "axis-label" }));
+  svg.appendChild(text(W - mr - 150, 14, a.user.display, { fill: C_ACCENT, "font-weight": 700 }));
+  svg.appendChild(text(W - mr - 78, 14, b.user.display, { fill: C_INK, "font-weight": 700 }));
+  return svg;
+}
+
 function renderClockDiffSvg(a: UserBundle, b: UserBundle): SVGSVGElement {
   const days = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
   const W = 900, H = 310, ml = 38, mr = 118, mt = 28, mb = 42;
@@ -305,9 +650,10 @@ async function main() {
     return;
   }
 
-  const score = compatibility(a.data, b.data);
+  const score = advancedCompatibility(a.data, b.data);
   const artistOverlap = overlapArtists(a.data, b.data);
   const trackOverlap = overlapTracks(a.data, b.data);
+  const albumOverlap = topAlbumsOverlap(a.data, b.data);
   const genres = genreRows(a.data, b.data);
 
   app.innerHTML = `
@@ -330,6 +676,12 @@ async function main() {
         <div><b>${pct(score.track)}</b><span>top track overlap</span></div>
         <div><b>${pct(score.genre)}</b><span>genre overlap</span></div>
         <div><b>${pct(score.clock)}</b><span>clock similarity</span></div>
+        <div><b>${pct(score.weekday)}</b><span>weekday similarity</span></div>
+        <div><b>${pct(score.platform)}</b><span>platform similarity</span></div>
+        <div><b>${pct(score.shuffle)}</b><span>shuffle similarity</span></div>
+        <div><b>${pct(score.skip)}</b><span>skip similarity</span></div>
+        <div><b>${pct(score.discovery)}</b><span>discovery similarity</span></div>
+        <div><b>${pct(score.concentration)}</b><span>artist concentration</span></div>
       </div>
     </section>
 
@@ -347,6 +699,47 @@ async function main() {
       </div>
     </section>
 
+    <section class="viz-card" id="month-chart">
+      <header><h2>Month-by-month Hours</h2><p class="subtitle">absolute monthly listening hours</p></header>
+    </section>
+
+    <section class="viz-card" id="cumulative-chart">
+      <header><h2>Cumulative Listening Curves</h2><p class="subtitle">running total hours over time</p></header>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Weekday Distribution</h2><p class="subtitle">share of listening hours</p></header>
+        <div class="compare-bars">${renderComparisonBars(weekdayRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Platform Share</h2><p class="subtitle">share of listening hours by platform</p></header>
+        <div class="compare-bars">${renderComparisonBars(platformRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Shuffle vs Intentional</h2><p class="subtitle">share of playback hours</p></header>
+        <div class="compare-bars">${renderComparisonBars(shuffleRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Skip Behavior</h2><p class="subtitle">global skip stats</p></header>
+        <div class="compare-bars">${renderComparisonBars(skipRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Discovery / New Artists</h2><p class="subtitle">first-play based artist discovery</p></header>
+        <div class="compare-bars">${renderComparisonBars(discoveryRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Day-length Distribution</h2><p class="subtitle">share of active listening days by bucket</p></header>
+        <div class="compare-bars">${renderComparisonBars(dayHistRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+    </section>
+
     <section class="compare-grid">
       <div class="viz-card compare-panel">
         <header><h2>Top Artist Overlap</h2><p class="subtitle">shared top-${TOP_N} artists</p></header>
@@ -356,6 +749,22 @@ async function main() {
         <header><h2>Top Track Overlap</h2><p class="subtitle">shared top-${TOP_N} tracks</p></header>
         ${overlapList(trackOverlap, a.user.display, b.user.display, "No shared top tracks in the compared range.")}
       </div>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Top Albums Overlap</h2><p class="subtitle">shared top-${TOP_N} albums</p></header>
+        ${overlapList(albumOverlap, a.user.display, b.user.display, "No shared top albums in the compared range.")}
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Common Artists Weighted by Hours</h2><p class="subtitle">shared artists sorted by combined hours</p></header>
+        ${overlapList(commonWeighted(artistOverlap, "hours"), a.user.display, b.user.display, "No shared top artists in the compared range.")}
+      </div>
+    </section>
+
+    <section class="viz-card">
+      <header><h2>Common Tracks Weighted by Plays</h2><p class="subtitle">shared tracks sorted by combined play count</p></header>
+      ${overlapList(commonWeighted(trackOverlap, "plays"), a.user.display, b.user.display, "No shared top tracks in the compared range.")}
     </section>
 
     <section class="compare-grid">
@@ -372,6 +781,48 @@ async function main() {
     <section class="viz-card">
       <header><h2>Genre Overlap</h2><p class="subtitle">shared Spotify-API genres in each top-${TOP_N}</p></header>
       ${overlapList(genres, a.user.display, b.user.display, "No shared genres in the compared range.")}
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel" id="genre-diversity-chart">
+        <header><h2>Genre Diversity by Year</h2><p class="subtitle">unique enriched genres heard each year</p></header>
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Top Genres Side-by-side</h2><p class="subtitle">top genre hour share among enriched plays</p></header>
+        <div class="compare-bars">${renderComparisonBars(topGenreRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel" id="lorenz-chart">
+        <header><h2>Top Artist Concentration</h2><p class="subtitle">Lorenz-style artist hour curve</p></header>
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Concentration Summary</h2><p class="subtitle">share of hours in top artists</p></header>
+        <div class="compare-bars">${renderComparisonBars(concentrationRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Session Metrics</h2><p class="subtitle">session counts, length, and peaks</p></header>
+        <div class="compare-bars">${renderComparisonBars(sessionRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Records / Extremes</h2><p class="subtitle">largest days, months, streaks, and gaps</p></header>
+        ${renderMetricTable(recordRows(a.data, b.data), a.user.display, b.user.display)}
+      </div>
+    </section>
+
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Biggest Deltas by Year</h2><p class="subtitle">largest absolute hour gaps</p></header>
+        ${renderMetricTable(yearlyDeltaRows(a.data, b.data), a.user.display, b.user.display)}
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Biggest Deltas by Month</h2><p class="subtitle">largest absolute hour gaps</p></header>
+        ${renderMetricTable(monthlyDeltaRows(a.data, b.data), a.user.display, b.user.display)}
+      </div>
     </section>
 
     <section class="viz-card" id="year-chart">
@@ -394,6 +845,10 @@ async function main() {
   });
 
   app.querySelector("#year-chart")!.appendChild(renderYearSvg(a, b));
+  app.querySelector("#month-chart")!.appendChild(renderPairedBarSvg(rowsFromUnion(a.data.yearMonth, b.data.yearMonth), a.user.display, b.user.display, "HOURS PER MONTH"));
+  app.querySelector("#cumulative-chart")!.appendChild(renderLineSvg(cumulativeRows(a.data, b.data), a.user.display, b.user.display, "CUMULATIVE HOURS"));
+  app.querySelector("#genre-diversity-chart")!.appendChild(renderLineSvg(genreDiversityRows(a.data, b.data), a.user.display, b.user.display, "GENRES PER YEAR", (n) => String(Math.round(n))));
+  app.querySelector("#lorenz-chart")!.appendChild(renderLorenzSvg(a, b));
   app.querySelector("#clock-diff")!.appendChild(renderClockDiffSvg(a, b));
 }
 
