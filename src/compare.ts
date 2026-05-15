@@ -26,6 +26,7 @@ type RankedArtist = TopArtist & { rank: number };
 type SeriesRow = { key: string; a: number; b: number; label?: string };
 type BarRow = { label: string; a: number; b: number; fmt?: (n: number) => string };
 type NamedMetric = { label: string; a: string; b: string; detail?: string };
+type FunMetric = { label: string; value: string; detail: string; tone?: "accent" | "ink" | "warn" };
 
 const USERS: UserMeta[] = [
   { id: "logge", display: "logge" },
@@ -235,6 +236,123 @@ function discoveryRate(data: DataBundle): number {
 
 function topShare(data: DataBundle, n: number): number {
   return safeDiv(data.topArtists.slice(0, n).reduce((s, r) => s + r.ms, 0), data.totals.totalMs);
+}
+
+function genreShare(data: DataBundle, test: (genre: string) => boolean): number {
+  const total = data.genres?.totalTopMs ?? 0;
+  if (!total) return 0;
+  const ms = (data.genres?.top ?? []).filter((row) => test(row.g.toLowerCase())).reduce((s, row) => s + row.ms, 0);
+  return safeDiv(ms, total);
+}
+
+function genreVector(data: DataBundle, limit = 80): Map<string, number> {
+  const total = data.genres?.totalTopMs ?? 0;
+  const rows = data.genres?.top.slice(0, limit) ?? [];
+  return new Map(rows.map((row) => [row.g.toLowerCase(), safeDiv(row.ms, total)]));
+}
+
+function cosineSimilarity(a: Map<string, number>, b: Map<string, number>): number {
+  const keys = Array.from(new Set([...a.keys(), ...b.keys()]));
+  let dot = 0, aa = 0, bb = 0;
+  for (const key of keys) {
+    const av = a.get(key) ?? 0;
+    const bv = b.get(key) ?? 0;
+    dot += av * bv;
+    aa += av * av;
+    bb += bv * bv;
+  }
+  return aa && bb ? dot / Math.sqrt(aa * bb) : 0;
+}
+
+function topGenreShare(data: DataBundle, n: number): number {
+  const total = data.genres?.totalTopMs ?? 0;
+  return safeDiv((data.genres?.top.slice(0, n) ?? []).reduce((s, row) => s + row.ms, 0), total);
+}
+
+function noveltyShare(data: DataBundle): number {
+  const lastYear = data.totals.lastPlay.slice(0, 4);
+  const latestNew = data.firstPlays.filter((row) => row.first.slice(0, 4) === lastYear).reduce((s, row) => s + row.ms, 0);
+  return safeDiv(latestNew, data.totals.totalMs);
+}
+
+function nightShare(data: DataBundle): number {
+  const total = data.clock.flat().reduce((s, v) => s + v, 0) || 1;
+  let ms = 0;
+  for (let d = 0; d < 7; d++) for (const h of [0, 1, 2, 3, 4, 5]) ms += data.clock[d]?.[h] ?? 0;
+  return ms / total;
+}
+
+function weekendShare(data: DataBundle): number {
+  const total = data.weekday.reduce((s, row) => s + row.ms, 0) || 1;
+  return safeDiv((data.weekday[5]?.ms ?? 0) + (data.weekday[6]?.ms ?? 0), total);
+}
+
+function completionRate(data: DataBundle): number {
+  const done = data.endReasons.find((row) => row.r === "trackdone")?.n ?? 0;
+  return safeDiv(done, data.endReasons.reduce((s, row) => s + row.n, 0));
+}
+
+function avgSongLengthMs(data: DataBundle): number {
+  const totalN = data.songLength.reduce((s, row) => s + row.n, 0) || 1;
+  return data.songLength.reduce((s, row) => s + row.avgMs * row.n, 0) / totalN;
+}
+
+function genreCompatibilityRows(a: DataBundle, b: DataBundle): BarRow[] {
+  return [
+    { label: "genre cosine", a: cosineSimilarity(genreVector(a), genreVector(b)), b: cosineSimilarity(genreVector(a), genreVector(b)), fmt: pct1 },
+    { label: "top 10 genre focus", a: topGenreShare(a, 10), b: topGenreShare(b, 10), fmt: pct1 },
+    { label: "pop gravity", a: genreShare(a, (g) => g.includes("pop")), b: genreShare(b, (g) => g.includes("pop")), fmt: pct1 },
+    { label: "rap / hip hop gravity", a: genreShare(a, (g) => g.includes("rap") || g.includes("hip hop")), b: genreShare(b, (g) => g.includes("rap") || g.includes("hip hop")), fmt: pct1 },
+    { label: "rock / metal gravity", a: genreShare(a, (g) => g.includes("rock") || g.includes("metal") || g.includes("punk")), b: genreShare(b, (g) => g.includes("rock") || g.includes("metal") || g.includes("punk")), fmt: pct1 },
+    { label: "electronic gravity", a: genreShare(a, (g) => g.includes("edm") || g.includes("electro") || g.includes("house") || g.includes("techno")), b: genreShare(b, (g) => g.includes("edm") || g.includes("electro") || g.includes("house") || g.includes("techno")), fmt: pct1 },
+    { label: "german-language pull", a: genreShare(a, (g) => g.includes("german") || g.includes("deutsch")), b: genreShare(b, (g) => g.includes("german") || g.includes("deutsch")), fmt: pct1 },
+  ];
+}
+
+function funMetrics(a: UserBundle, b: UserBundle, score: ReturnType<typeof advancedCompatibility>, artistOverlap: OverlapRow[], trackOverlap: OverlapRow[], genreOverlap: OverlapRow[]): FunMetric[] {
+  const aData = a.data;
+  const bData = b.data;
+  const nightA = nightShare(aData), nightB = nightShare(bData);
+  const weekendA = weekendShare(aData), weekendB = weekendShare(bData);
+  const completionA = completionRate(aData), completionB = completionRate(bData);
+  const avgLenA = avgSongLengthMs(aData), avgLenB = avgSongLengthMs(bData);
+  const repeatA = safeDiv(aData.records.repeatChampion.n, aData.totals.totalPlays);
+  const repeatB = safeDiv(bData.records.repeatChampion.n, bData.totals.totalPlays);
+  const genreCosine = cosineSimilarity(genreVector(aData), genreVector(bData));
+  const party = Math.round((score.shuffle * 0.25 + score.weekday * 0.2 + (1 - Math.abs(nightA - nightB)) * 0.2 + genreCosine * 0.25 + score.track * 0.1) * 100);
+  const aux = artistOverlap.length >= 12 && trackOverlap.length >= 5 ? "co-pilot ready" : artistOverlap.length >= 5 ? "needs a queue treaty" : "separate aux cables";
+  const genreVerdict = genreCosine > 0.72 ? "same shelf" : genreCosine > 0.45 ? "neighbor shelves" : "different record stores";
+  const chaosA = safeDiv(aData.skipStats?.globalRate ?? 0, 0.25) + safeDiv(aData.shuffle.shuffleMs, aData.shuffle.shuffleMs + aData.shuffle.intentionalMs) + nightA;
+  const chaosB = safeDiv(bData.skipStats?.globalRate ?? 0, 0.25) + safeDiv(bData.shuffle.shuffleMs, bData.shuffle.shuffleMs + bData.shuffle.intentionalMs) + nightB;
+  const chaosWinner = chaosA > chaosB ? a.user.display : b.user.display;
+  const comfortWinner = repeatA > repeatB ? a.user.display : b.user.display;
+  const saboteur = (aData.skipStats?.globalRate ?? 0) > (bData.skipStats?.globalRate ?? 0) ? a.user.display : b.user.display;
+  const longSong = avgLenA > avgLenB ? a.user.display : b.user.display;
+  const weekendTwin = 1 - Math.abs(weekendA - weekendB);
+  return [
+    { label: "Roadtrip peace treaty", value: `${party}/100`, detail: `${aux}; ${artistOverlap.length} shared top artists, ${trackOverlap.length} shared top tracks`, tone: "accent" },
+    { label: "Genre marriage counselor", value: pct1(genreCosine), detail: `${genreVerdict}; ${genreOverlap.length} shared top genres`, tone: "accent" },
+    { label: "Who steals the aux?", value: artistOverlap.length >= 10 ? "share it" : (aData.totals.totalMs > bData.totals.totalMs ? a.user.display : b.user.display), detail: artistOverlap.length >= 10 ? "enough overlap to rotate songs" : "more listening gravity wins the argument" },
+    { label: "Chaos listener", value: chaosWinner, detail: `skip + shuffle + night score: ${chaosA.toFixed(2)} vs ${chaosB.toFixed(2)}`, tone: "warn" },
+    { label: "Comfort song hoarder", value: comfortWinner, detail: `repeat-champion share: ${pct1(repeatA)} vs ${pct1(repeatB)}` },
+    { label: "Skip button menace", value: saboteur, detail: `global skip rate: ${pct1(aData.skipStats?.globalRate ?? 0)} vs ${pct1(bData.skipStats?.globalRate ?? 0)}`, tone: "warn" },
+    { label: "Night owl sync", value: pct1(1 - Math.abs(nightA - nightB)), detail: `00-06h share: ${pct1(nightA)} vs ${pct1(nightB)}` },
+    { label: "Weekend alignment", value: pct1(weekendTwin), detail: `Sat/Sun share: ${pct1(weekendA)} vs ${pct1(weekendB)}` },
+    { label: "Completion discipline", value: pct1(1 - Math.abs(completionA - completionB)), detail: `trackdone rate: ${pct1(completionA)} vs ${pct1(completionB)}` },
+    { label: "Long-song patience", value: longSong, detail: `avg track length: ${(avgLenA / 1000).toFixed(0)}s vs ${(avgLenB / 1000).toFixed(0)}s` },
+    { label: "Discovery pact", value: pct1(1 - Math.abs(noveltyShare(aData) - noveltyShare(bData))), detail: `latest-year new-artist hours: ${pct1(noveltyShare(aData))} vs ${pct1(noveltyShare(bData))}` },
+    { label: "Taste monoculture risk", value: topGenreShare(aData, 5) > topGenreShare(bData, 5) ? a.user.display : b.user.display, detail: `top-5 genre share: ${pct1(topGenreShare(aData, 5))} vs ${pct1(topGenreShare(bData, 5))}` },
+  ];
+}
+
+function renderFunMetrics(rows: FunMetric[]): string {
+  return `<div class="fun-grid">${rows.map((row) => `
+    <article class="fun-card ${row.tone ?? ""}">
+      <span>${escapeHtml(row.label)}</span>
+      <strong>${escapeHtml(row.value)}</strong>
+      <p>${escapeHtml(row.detail)}</p>
+    </article>
+  `).join("")}</div>`;
 }
 
 function rowsFromUnion(aRows: { ym: string; ms: number }[], bRows: { ym: string; ms: number }[]): SeriesRow[] {
@@ -655,6 +773,7 @@ async function main() {
   const trackOverlap = overlapTracks(a.data, b.data);
   const albumOverlap = topAlbumsOverlap(a.data, b.data);
   const genres = genreRows(a.data, b.data);
+  const fun = funMetrics(a, b, score, artistOverlap, trackOverlap, genres);
 
   app.innerHTML = `
     <header class="compare-head">
@@ -683,6 +802,11 @@ async function main() {
         <div><b>${pct(score.discovery)}</b><span>discovery similarity</span></div>
         <div><b>${pct(score.concentration)}</b><span>artist concentration</span></div>
       </div>
+    </section>
+
+    <section class="viz-card">
+      <header><h2>Fun Compatibility Lab</h2><p class="subtitle">less scientific, still data-backed</p></header>
+      ${renderFunMetrics(fun)}
     </section>
 
     <section class="compare-grid">
@@ -778,9 +902,15 @@ async function main() {
       </div>
     </section>
 
-    <section class="viz-card">
-      <header><h2>Genre Overlap</h2><p class="subtitle">shared Spotify-API genres in each top-${TOP_N}</p></header>
-      ${overlapList(genres, a.user.display, b.user.display, "No shared genres in the compared range.")}
+    <section class="compare-grid">
+      <div class="viz-card compare-panel">
+        <header><h2>Genre Overlap</h2><p class="subtitle">shared Spotify-API genres in each top-${TOP_N}</p></header>
+        ${overlapList(genres, a.user.display, b.user.display, "No shared genres in the compared range.")}
+      </div>
+      <div class="viz-card compare-panel">
+        <header><h2>Genre Compatibility Breakdown</h2><p class="subtitle">genre-vector similarity and broad taste lanes</p></header>
+        <div class="compare-bars">${renderComparisonBars(genreCompatibilityRows(a.data, b.data), a.user.display, b.user.display)}</div>
+      </div>
     </section>
 
     <section class="compare-grid">
