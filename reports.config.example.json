@@ -27,6 +27,13 @@
       "outFile": "noel/data.json",
       "publicFile": "public/noel/data.json",
       "genreCache": "public/noel/artist-genres.json"
+    },
+    {
+      "id": "julian",
+      "rawDir": "data/raw-julian/Spotify Extended Streaming History",
+      "outFile": "julian/data.json",
+      "publicFile": "public/julian/data.json",
+      "genreCache": "public/julian/artist-genres.json"
     }
   ]
 }

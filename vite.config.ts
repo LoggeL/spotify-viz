@@ -13,6 +13,7 @@ export default defineConfig({
         tojokn: resolve(__dirname, "tojokn/index.html"),
         jonas: resolve(__dirname, "jonas/index.html"),
         noel: resolve(__dirname, "noel/index.html"),
+        julian: resolve(__dirname, "julian/index.html"),
       },
     },
   },
