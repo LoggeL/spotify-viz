@@ -1438,3 +1438,28 @@ svg.viz a:hover rect { filter: brightness(1.08); }
   .festival-act-row { grid-template-columns: 30px minmax(0, 1fr); }
   .act-minutes { grid-column: 2; text-align: left; }
 }
+.festival-mode-toggle {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 14px;
+  padding: 3px;
+  border: 1px solid rgba(29, 185, 84, 0.26);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+.festival-mode-toggle button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 12px;
+}
+.festival-mode-toggle button.active {
+  background: var(--accent);
+  color: white;
+}

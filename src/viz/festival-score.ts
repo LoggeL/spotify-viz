@@ -85,9 +85,23 @@ function findArtist(index: Map<string, TopArtist>, actArtist: string): TopArtist
   return undefined;
 }
 
-function scoreFestivals(data: DataBundle): FestivalScore[] {
-  const index = buildArtistIndex(data.topArtists);
-  const maxArtistMinutes = Math.max(1, ...data.topArtists.map((a) => a.ms / 60_000));
+function artistSourceForMode(data: DataBundle, mode: string): TopArtist[] {
+  if (mode === "all") return data.topArtists;
+  const year = data.perYear.find((row) => row.y === mode);
+  if (!year) return data.topArtists;
+  return year.artists.map((artist) => ({
+    ...artist,
+    first: `${mode}-01-01`,
+    last: `${mode}-12-31`,
+    skips: 0,
+    exposures: artist.plays,
+  }));
+}
+
+function scoreFestivals(data: DataBundle, mode = "all"): FestivalScore[] {
+  const sourceArtists = artistSourceForMode(data, mode);
+  const index = buildArtistIndex(sourceArtists);
+  const maxArtistMinutes = Math.max(1, ...sourceArtists.map((a) => a.ms / 60_000));
 
   const rows = festivals.map((festival) => {
     const festivalActs = acts.filter((act) => act.festivalId === festival.id);
@@ -144,15 +158,22 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
   const root = document.createElement("div");
   root.className = "festival-score";
 
-  const scored = scoreFestivals(data);
-  const selectedId = scored[0]?.id;
+  const years = data.perYear.map((row) => row.y).sort();
+  const latestYear = years.at(-1) ?? data.totals.years.at(-1) ?? new Date().getFullYear().toString();
+  let mode = "all";
+  let scored = scoreFestivals(data, mode);
+  let selectedId = scored[0]?.id;
 
   root.innerHTML = `
     <div class="festival-score-hero">
       <div>
         <div class="eyebrow">festival match engine</div>
-        <h3>${scored[0] ? escapeHtml(scored[0].name) : "Festival"} leads with ${scored[0]?.score ?? 0}/100</h3>
-        <p>Scores use your Spotify artist minutes, act coverage, and lineup depth. Act tables are sorted by your listening minutes.</p>
+        <h3><span class="festival-leader-name">${scored[0] ? escapeHtml(scored[0].name) : "Festival"}</span> leads with <span class="festival-leader-score">${scored[0]?.score ?? 0}</span>/100</h3>
+        <p>Scores use your Spotify artist minutes, act coverage, and lineup depth. Switch between lifetime taste and your latest listening year.</p>
+        <div class="festival-mode-toggle" role="group" aria-label="Festival scoring mode">
+          <button class="active" data-mode="all" type="button">All time</button>
+          <button data-mode="${latestYear}" type="button">${latestYear}</button>
+        </div>
       </div>
       <div class="festival-score-big mono">${scored[0]?.score ?? 0}</div>
     </div>
@@ -162,6 +183,9 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
 
   const rankGrid = root.querySelector<HTMLDivElement>(".festival-rank-grid")!;
   const detail = root.querySelector<HTMLDivElement>(".festival-detail")!;
+  const leaderName = root.querySelector<HTMLSpanElement>(".festival-leader-name")!;
+  const leaderScore = root.querySelector<HTMLSpanElement>(".festival-leader-score")!;
+  const bigScore = root.querySelector<HTMLDivElement>(".festival-score-big")!;
 
   function drawDetail(id: string) {
     root.querySelectorAll<HTMLButtonElement>(".festival-rank-card").forEach((btn) => {
@@ -198,26 +222,52 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
     `;
   }
 
-  scored.forEach((festival) => {
-    const btn = document.createElement("button");
-    btn.className = "festival-rank-card";
-    btn.dataset.id = festival.id;
-    btn.innerHTML = `
-      <div class="festival-rank-top">
-        <span>${escapeHtml(festival.name)}</span>
-        <strong class="mono">${festival.score}</strong>
-      </div>
-      <div class="festival-rank-bar"><span style="width:${festival.score}%"></span></div>
-      <div class="festival-rank-meta">
-        <span>${fmtHours(festival.totalMinutes * 60_000)}</span>
-        <span>${fmtNum(festival.totalPlays)} plays</span>
-        <span>${festival.matchedActs}/${festival.totalActs} acts</span>
-      </div>
-    `;
-    btn.addEventListener("click", () => drawDetail(festival.id));
-    rankGrid.appendChild(btn);
+  function drawRanks() {
+    rankGrid.innerHTML = "";
+    scored.forEach((festival) => {
+      const btn = document.createElement("button");
+      btn.className = "festival-rank-card";
+      btn.dataset.id = festival.id;
+      btn.innerHTML = `
+        <div class="festival-rank-top">
+          <span>${escapeHtml(festival.name)}</span>
+          <strong class="mono">${festival.score}</strong>
+        </div>
+        <div class="festival-rank-bar"><span style="width:${festival.score}%"></span></div>
+        <div class="festival-rank-meta">
+          <span>${fmtHours(festival.totalMinutes * 60_000)}</span>
+          <span>${fmtNum(festival.totalPlays)} plays</span>
+          <span>${festival.matchedActs}/${festival.totalActs} acts</span>
+        </div>
+      `;
+      btn.addEventListener("click", () => {
+        selectedId = festival.id;
+        drawDetail(festival.id);
+      });
+      rankGrid.appendChild(btn);
+    });
+  }
+
+  function setMode(nextMode: string) {
+    mode = nextMode;
+    scored = scoreFestivals(data, mode);
+    selectedId = scored[0]?.id;
+    const leader = scored[0];
+    leaderName.textContent = leader?.name ?? "Festival";
+    leaderScore.textContent = String(leader?.score ?? 0);
+    bigScore.textContent = String(leader?.score ?? 0);
+    root.querySelectorAll<HTMLButtonElement>(".festival-mode-toggle button").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+    drawRanks();
+    if (selectedId) drawDetail(selectedId);
+  }
+
+  root.querySelectorAll<HTMLButtonElement>(".festival-mode-toggle button").forEach((btn) => {
+    btn.addEventListener("click", () => setMode(btn.dataset.mode ?? "all"));
   });
 
+  drawRanks();
   if (selectedId) drawDetail(selectedId);
   return root;
 }
