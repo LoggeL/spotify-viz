@@ -73,14 +73,39 @@ function buildArtistIndex(topArtists: TopArtist[]): Map<string, TopArtist> {
   return index;
 }
 
+function tokenSet(value: string): Set<string> {
+  return new Set(normalize(value).split(" ").filter((token) => token.length >= 2));
+}
+
+function isSafeArtistAlias(actKey: string, spotifyKey: string): boolean {
+  if (actKey === spotifyKey) return true;
+
+  const actTokens = tokenSet(actKey);
+  const spotifyTokens = tokenSet(spotifyKey);
+  if (!actTokens.size || !spotifyTokens.size) return false;
+
+  // Allow small punctuation/connector differences, but do not allow a one-word
+  // Spotify artist to claim a longer act name. Example: "Scene Queen" must not
+  // match "Queen" just because one token overlaps.
+  const actInSpotify = [...actTokens].every((token) => spotifyTokens.has(token));
+  const spotifyInAct = [...spotifyTokens].every((token) => actTokens.has(token));
+  if (actTokens.size === spotifyTokens.size && actInSpotify && spotifyInAct) return true;
+
+  // Permit acronyms / short stylings only when the shorter side has at least two
+  // tokens on the other side. This catches connector variants without reviving
+  // broad substring matches.
+  return false;
+}
+
 function findArtist(index: Map<string, TopArtist>, actArtist: string): TopArtist | undefined {
-  for (const key of artistKeys(actArtist)) {
+  const keys = artistKeys(actArtist);
+  for (const key of keys) {
     const exact = index.get(key);
     if (exact) return exact;
   }
-  const keys = artistKeys(actArtist);
+
   for (const [spotifyKey, artist] of index) {
-    if (keys.some((key) => key.length >= 4 && (spotifyKey.includes(key) || key.includes(spotifyKey)))) return artist;
+    if (keys.some((key) => isSafeArtistAlias(key, spotifyKey))) return artist;
   }
   return undefined;
 }
