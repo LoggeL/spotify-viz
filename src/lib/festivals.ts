@@ -353,7 +353,7 @@ const highfield: Act[] = Object.entries(highfieldByDay).flatMap(([key, groups]) 
       festivalId: "highfield-2026" as const,
       day,
       date,
-      stage: "Concert",
+      stage: "Konzert",
       artist,
       source: "official-lineup" as const,
     })),
