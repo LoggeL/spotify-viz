@@ -71,13 +71,16 @@ function buildArtistIndex(topArtists: TopArtist[]): ArtistIndex {
 }
 
 function findArtist(index: ArtistIndex, actArtist: string): TopArtist | undefined {
+  const directNameMatch = index.byName.get(normalizeArtistName(actArtist));
+  if (directNameMatch) return directNameMatch;
+
   const identity = festivalArtistIdentities[actArtist];
   if (identity) {
-    return index.bySpotifyId.get(identity.spotifyArtistId)
-      ?? index.byName.get(normalizeArtistName(identity.name));
+    return index.byName.get(normalizeArtistName(identity.name))
+      ?? index.bySpotifyId.get(identity.spotifyArtistId);
   }
 
-  return index.byName.get(normalizeArtistName(actArtist));
+  return undefined;
 }
 
 function artistSourceForMode(data: DataBundle, mode: string): TopArtist[] {
