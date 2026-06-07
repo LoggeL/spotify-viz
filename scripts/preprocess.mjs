@@ -509,7 +509,7 @@ async function main() {
     artists: [...(yearArtistAgg.get(y)?.entries() || [])]
       .map(([a, v]) => ({ a, plays: v.plays, ms: v.ms }))
       .sort((x, z) => z.plays - x.plays)
-      .slice(0, 15),
+      .slice(0, 500),
     tracks: [...(yearTrackAgg.get(y)?.entries() || [])]
       .map(([k, v]) => { const [a, t] = k.split("\u0000"); return { a, t, plays: v.plays, ms: v.ms }; })
       .sort((x, z) => z.plays - x.plays)

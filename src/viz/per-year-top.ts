@@ -39,8 +39,8 @@ export function renderPerYearTop(data: DataBundle): HTMLElement {
 
     const artistsCol = buildList(
       "TOP ARTISTS",
-      `${y.artists.length} shown · ${fmtNum(totalArtistPlays)} plays`,
-      y.artists.map((a, i) => ({
+      `${Math.min(15, y.artists.length)} shown · ${fmtNum(totalArtistPlays)} plays`,
+      y.artists.slice(0, 15).map((a, i) => ({
         rank: i + 1,
         name: a.a,
         plays: a.plays,
