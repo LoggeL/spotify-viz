@@ -11,13 +11,17 @@ type DominoData = {
   edges: DominoEdge[];
 };
 
-type ChainStep = {
-  artistKey: string;
+type Tile = DominoEdge & {
+  id: string;
   artist: string;
-  titleKey: string;
   title: string;
-  plays: number;
-  ms: number;
+};
+
+type PlacedTile = Tile & {
+  left: string;
+  right: string;
+  leftKind: "artist" | "title";
+  rightKind: "artist" | "title";
 };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -37,76 +41,35 @@ async function loadDominoData(): Promise<DominoData> {
   return await res.json() as DominoData;
 }
 
-function buildLookups(data: DominoData) {
+function buildTiles(data: DominoData): Tile[] {
   const artistName = new Map(data.artists.map((artist) => [artist.key, artist.name]));
   const titleName = new Map(data.titles.map((title) => [title.key, title.title]));
-  const byArtist = new Map<string, DominoEdge[]>();
-  const byTitle = new Map<string, DominoEdge[]>();
-  for (const edge of data.edges) {
-    if (!byArtist.has(edge.a)) byArtist.set(edge.a, []);
-    byArtist.get(edge.a)!.push(edge);
-    if (!byTitle.has(edge.t)) byTitle.set(edge.t, []);
-    byTitle.get(edge.t)!.push(edge);
-  }
-  return { artistName, titleName, byArtist, byTitle };
+  return data.edges.map((edge) => ({
+    ...edge,
+    id: `${edge.a}\u0000${edge.t}`,
+    artist: artistName.get(edge.a) ?? edge.a,
+    title: titleName.get(edge.t) ?? edge.t,
+  }));
 }
 
-function weightedPick(edges: DominoEdge[]): DominoEdge {
-  const total = edges.reduce((sum, edge) => sum + Math.sqrt(edge.plays), 0);
+function weightedPick(tiles: Tile[]): Tile {
+  const total = tiles.reduce((sum, tile) => sum + Math.sqrt(tile.plays), 0);
   let r = Math.random() * total;
-  for (const edge of edges) {
-    r -= Math.sqrt(edge.plays);
-    if (r <= 0) return edge;
+  for (const tile of tiles) {
+    r -= Math.sqrt(tile.plays);
+    if (r <= 0) return tile;
   }
-  return edges[edges.length - 1];
+  return tiles[tiles.length - 1];
 }
 
-function generateChain(data: DominoData, targetLength: number, startArtist?: string): ChainStep[] {
-  const { artistName, titleName, byArtist, byTitle } = buildLookups(data);
-  const strongStarts = [...byArtist.entries()].filter(([, edges]) => edges.length >= 2).map(([artist]) => artist);
-  let currentArtist = startArtist && byArtist.has(startArtist) ? startArtist : pick(strongStarts);
-  const chain: ChainStep[] = [];
-  const usedEdges = new Set<string>();
-
-  for (let i = 0; i < targetLength; i += 1) {
-    const options = (byArtist.get(currentArtist) ?? []).filter((edge) => !usedEdges.has(`${edge.a}\u0000${edge.t}`));
-    if (!options.length) break;
-    const edge = weightedPick(options);
-    usedEdges.add(`${edge.a}\u0000${edge.t}`);
-    chain.push({
-      artistKey: edge.a,
-      artist: artistName.get(edge.a) ?? edge.a,
-      titleKey: edge.t,
-      title: titleName.get(edge.t) ?? edge.t,
-      plays: edge.plays,
-      ms: edge.ms,
-    });
-
-    const nextOptions = (byTitle.get(edge.t) ?? [])
-      .filter((next) => next.a !== edge.a)
-      .filter((next) => (byArtist.get(next.a) ?? []).some((candidate) => candidate.t !== edge.t));
-    if (!nextOptions.length) break;
-    currentArtist = weightedPick(nextOptions).a;
+function tileLeftRight(tile: Tile, openKey: string): PlacedTile | null {
+  if (tile.a === openKey) {
+    return { ...tile, left: tile.artist, right: tile.title, leftKind: "artist", rightKind: "title" };
   }
-
-  return chain;
-}
-
-function renderChain(chain: ChainStep[]): string {
-  if (!chain.length) return `<p class="status">No chain found. Try another start.</p>`;
-  return `
-    <div class="domino-chain">
-      ${chain.map((step, index) => `
-        <a class="domino-tile" href="${spotifySearchUrl(`${step.artist} ${step.title}`)}" target="_blank" rel="noopener noreferrer">
-          <span class="domino-index mono">${String(index + 1).padStart(2, "0")}</span>
-          <span class="domino-side artist">${escapeHtml(step.artist)}</span>
-          <span class="domino-divider">/</span>
-          <span class="domino-side title">${escapeHtml(step.title)}</span>
-          <span class="domino-meta mono">${fmtNum(step.plays)} plays · ${fmtHours(step.ms)}</span>
-        </a>
-      `).join("")}
-    </div>
-  `;
+  if (tile.t === openKey) {
+    return { ...tile, left: tile.title, right: tile.artist, leftKind: "title", rightKind: "artist" };
+  }
+  return null;
 }
 
 function escapeHtml(value: string): string {
@@ -125,56 +88,143 @@ function renderStats(data: DominoData): string {
   return `<div class="stats domino-stats">${rows.map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${fmtNum(v as number)}</div></div>`).join("")}</div>`;
 }
 
+function renderPlacedTile(tile: PlacedTile, index: number): string {
+  return `
+    <div class="domino-tile placed">
+      <span class="domino-index mono">${String(index + 1).padStart(2, "0")}</span>
+      <span class="domino-side ${tile.leftKind}">${escapeHtml(tile.left)}</span>
+      <span class="domino-divider">/</span>
+      <span class="domino-side ${tile.rightKind}">${escapeHtml(tile.right)}</span>
+      <a class="domino-meta mono" href="${spotifySearchUrl(`${tile.artist} ${tile.title}`)}" target="_blank" rel="noopener noreferrer">${fmtNum(tile.plays)} plays · ${fmtHours(tile.ms)}</a>
+    </div>
+  `;
+}
+
+function renderCandidate(tile: PlacedTile, remainingCount: number): string {
+  return `
+    <button class="domino-tile candidate" data-id="${escapeHtml(tile.id)}" type="button">
+      <span class="domino-index mono">+${remainingCount}</span>
+      <span class="domino-side ${tile.leftKind}">${escapeHtml(tile.left)}</span>
+      <span class="domino-divider">/</span>
+      <span class="domino-side ${tile.rightKind}">${escapeHtml(tile.right)}</span>
+      <span class="domino-meta mono">${fmtNum(tile.plays)} plays · ${fmtHours(tile.ms)}</span>
+    </button>
+  `;
+}
+
 function renderApp(data: DominoData) {
-  const { byArtist } = buildLookups(data);
-  const artistOptions = data.artists
-    .filter((artist) => (byArtist.get(artist.key)?.length ?? 0) >= 1)
-    .map((artist) => `<option value="${escapeHtml(artist.key)}">${escapeHtml(artist.name)}</option>`)
-    .join("");
+  const tiles = buildTiles(data);
+  const byId = new Map(tiles.map((tile) => [tile.id, tile]));
+  let placed: PlacedTile[] = [];
+  let openKey = "";
+  let openLabel = "";
+  let used = new Set<string>();
+  let candidateLimit = 36;
+  let score = 0;
 
   app.innerHTML = `
     <header class="domino-hero">
       <a class="back-link" href="${import.meta.env.BASE_URL}">← Spotify Viz</a>
-      <div class="eyebrow">prototype</div>
+      <div class="eyebrow">game prototype</div>
       <h1>Song Domino <span class="user-tag">· julian</span></h1>
-      <p class="lead">Build chains where an artist's song title becomes the next artist name or another artist's matching song title. Generated from Spotify Extended Streaming History.</p>
+      <p class="lead">Lege echte Artist/Song-Steine. Ein Stein darf gedreht werden; spielbar ist nur, wenn eine Seite exakt ans offene Ende passt.</p>
       ${renderStats(data)}
     </header>
     <section class="viz-card domino-card">
       <header>
-        <h2>Random chain</h2>
-        <p class="subtitle">artist / title → title / next artist → …</p>
+        <h2>Board</h2>
+        <p class="subtitle">Open end: <strong id="openEnd">—</strong> · Score: <strong id="score">0</strong></p>
       </header>
-      <div class="domino-controls">
-        <label>Length <input id="length" type="range" min="4" max="24" value="12" /></label>
-        <span id="lengthLabel" class="mono">12</span>
-        <label>Start artist <select id="artist"><option value="">Random</option>${artistOptions}</select></label>
-        <button id="reroll" type="button">New chain</button>
+      <div class="domino-controls game-controls">
+        <button id="newGame" type="button">New game</button>
+        <button id="hint" type="button">Hint / random legal tile</button>
+        <label>Shown legal tiles <input id="limit" type="range" min="12" max="96" value="36" step="12" /></label>
+        <span id="limitLabel" class="mono">36</span>
       </div>
-      <div id="chain"></div>
+      <div id="board" class="domino-chain"></div>
     </section>
     <section class="viz-card domino-card">
-      <header><h2>How dense is it?</h2><p class="subtitle">Enough material for a real game, but not every title connects.</p></header>
-      <div class="domino-note">
-        <p><strong>${fmtNum(data.stats.connectableSongs)}</strong> artist/title tiles can be played because their title exists for at least one other artist.</p>
-        <p><strong>${fmtNum(data.stats.continuationSongs)}</strong> of those are chain-friendly: after landing on that artist, there is another shared-title move available.</p>
-      </div>
+      <header>
+        <h2>Legal stones</h2>
+        <p class="subtitle" id="legalSubtitle">Only stones that fit the open end appear here.</p>
+      </header>
+      <div id="candidates" class="domino-chain"></div>
     </section>
   `;
 
-  const length = app.querySelector<HTMLInputElement>("#length")!;
-  const lengthLabel = app.querySelector<HTMLSpanElement>("#lengthLabel")!;
-  const artist = app.querySelector<HTMLSelectElement>("#artist")!;
-  const chainRoot = app.querySelector<HTMLDivElement>("#chain")!;
-  function reroll() {
-    lengthLabel.textContent = length.value;
-    const chain = generateChain(data, Number(length.value), artist.value || undefined);
-    chainRoot.innerHTML = renderChain(chain);
+  const board = app.querySelector<HTMLDivElement>("#board")!;
+  const candidates = app.querySelector<HTMLDivElement>("#candidates")!;
+  const openEnd = app.querySelector<HTMLElement>("#openEnd")!;
+  const scoreEl = app.querySelector<HTMLElement>("#score")!;
+  const legalSubtitle = app.querySelector<HTMLElement>("#legalSubtitle")!;
+  const limit = app.querySelector<HTMLInputElement>("#limit")!;
+  const limitLabel = app.querySelector<HTMLSpanElement>("#limitLabel")!;
+
+  function legalTiles(): PlacedTile[] {
+    return tiles
+      .filter((tile) => !used.has(tile.id))
+      .map((tile) => tileLeftRight(tile, openKey))
+      .filter((tile): tile is PlacedTile => Boolean(tile))
+      .sort((a, b) => b.plays - a.plays || a.artist.localeCompare(b.artist) || a.title.localeCompare(b.title));
   }
-  length.addEventListener("input", reroll);
-  artist.addEventListener("change", reroll);
-  app.querySelector<HTMLButtonElement>("#reroll")!.addEventListener("click", reroll);
-  reroll();
+
+  function render() {
+    board.innerHTML = placed.map(renderPlacedTile).join("");
+    openEnd.textContent = openLabel || "—";
+    scoreEl.textContent = String(score);
+
+    const legal = legalTiles();
+    legalSubtitle.textContent = legal.length
+      ? `${fmtNum(legal.length)} legal stones fit “${openLabel}”. Pick one.`
+      : `No legal stones left for “${openLabel}”. Game over.`;
+    candidates.innerHTML = legal.length
+      ? legal.slice(0, candidateLimit).map((tile) => renderCandidate(tile, legal.length)).join("")
+      : `<p class="status">Game over — chain length ${placed.length}. Start a new game.</p>`;
+
+    candidates.querySelectorAll<HTMLButtonElement>(".candidate").forEach((button) => {
+      button.addEventListener("click", () => {
+        const tile = byId.get(button.dataset.id ?? "");
+        if (tile) placeTile(tile);
+      });
+    });
+  }
+
+  function placeTile(tile: Tile) {
+    const oriented = tileLeftRight(tile, openKey);
+    if (!oriented) return;
+    used.add(tile.id);
+    placed.push(oriented);
+    openKey = oriented.rightKind === "artist" ? oriented.a : oriented.t;
+    openLabel = oriented.right;
+    score = placed.length;
+    render();
+  }
+
+  function startGame(start?: Tile) {
+    used = new Set<string>();
+    placed = [];
+    const first = start ?? weightedPick(tiles.filter((tile) => tile.plays >= 2));
+    used.add(first.id);
+    const oriented: PlacedTile = { ...first, left: first.artist, right: first.title, leftKind: "artist", rightKind: "title" };
+    placed.push(oriented);
+    openKey = first.t;
+    openLabel = first.title;
+    score = 1;
+    render();
+  }
+
+  app.querySelector<HTMLButtonElement>("#newGame")!.addEventListener("click", () => startGame());
+  app.querySelector<HTMLButtonElement>("#hint")!.addEventListener("click", () => {
+    const legal = legalTiles();
+    if (legal.length) placeTile(pick(legal));
+  });
+  limit.addEventListener("input", () => {
+    candidateLimit = Number(limit.value);
+    limitLabel.textContent = limit.value;
+    render();
+  });
+
+  startGame();
 }
 
 loadDominoData().then(renderApp).catch((err) => {

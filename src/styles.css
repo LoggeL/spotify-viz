@@ -1581,3 +1581,42 @@ svg.viz a:hover rect { filter: brightness(1.08); }
   .domino-side.title { grid-column: 3; }
   .domino-meta { grid-column: 2 / -1; }
 }
+
+
+.game-controls {
+  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+}
+.domino-tile.candidate {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: var(--ink);
+}
+.domino-tile.candidate:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(17, 20, 24, .08);
+}
+.domino-tile.placed {
+  background:
+    linear-gradient(90deg, rgba(29,185,84,.16), rgba(29,185,84,.04) 42%, transparent),
+    var(--panel);
+}
+.domino-side.artist::before,
+.domino-side.title::before {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  vertical-align: 1px;
+}
+.domino-side.artist::before { content: "artist"; }
+.domino-side.title::before { content: "song"; }
+.domino-tile button { font: inherit; }
+#openEnd { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .game-controls { grid-template-columns: 1fr; }
+}
