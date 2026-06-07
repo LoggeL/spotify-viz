@@ -83,23 +83,34 @@ function findArtist(index: ArtistIndex, actArtist: string): TopArtist | undefine
   return undefined;
 }
 
+function artistWasActiveInYear(artist: TopArtist, year: string): boolean {
+  const start = `${year}-01-01`;
+  const end = `${year}-12-31T23:59:59`;
+  return artist.first <= end && artist.last >= start;
+}
+
 function artistSourceForMode(data: DataBundle, mode: string): TopArtist[] {
   if (mode === "all") return data.topArtists;
+
   const year = data.perYear.find((row) => row.y === mode);
-  if (!year) return data.topArtists;
-  const canonicalArtists = new Map(data.topArtists.map((artist) => [artist.a, artist]));
-  return year.artists.map((artist) => {
-    const canonical = canonicalArtists.get(artist.a);
-    return {
-      ...artist,
-      spotifyArtistId: canonical?.spotifyArtistId,
-      spotifyName: canonical?.spotifyName,
-      first: `${mode}-01-01`,
-      last: `${mode}-12-31`,
-      skips: 0,
-      exposures: artist.plays,
-    };
-  });
+  const yearlyByName = new Map((year?.artists ?? []).map((artist) => [normalizeArtistName(artist.a), artist]));
+
+  return data.topArtists
+    .filter((artist) => artistWasActiveInYear(artist, mode) || yearlyByName.has(normalizeArtistName(artist.a)))
+    .map((artist) => {
+      const yearly = yearlyByName.get(normalizeArtistName(artist.a));
+      if (!yearly) return artist;
+
+      return {
+        ...artist,
+        plays: yearly.plays,
+        ms: yearly.ms,
+        first: `${mode}-01-01`,
+        last: `${mode}-12-31`,
+        skips: 0,
+        exposures: yearly.plays,
+      };
+    });
 }
 
 function scoreFestivals(data: DataBundle, mode = "all"): FestivalScore[] {
