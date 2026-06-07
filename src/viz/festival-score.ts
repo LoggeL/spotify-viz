@@ -1,4 +1,5 @@
 import { fmtHours, fmtNum, type DataBundle, type TopArtist } from "../lib/data";
+import { festivalArtistIdentities } from "../lib/festival-artist-identities";
 import { acts, festivals, type Act, type Festival } from "../lib/festivals";
 import { spotifySearchUrl } from "../lib/util";
 
@@ -21,32 +22,6 @@ type FestivalScore = Festival & {
   timedActs: number;
 };
 
-const STRIP_WORDS = /\b(live|dj set|b2b|feat|featuring|pres|presents|official|the)\b/g;
-
-function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/\+/g, " and ")
-    .replace(/\$oho/g, "soho")
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(STRIP_WORDS, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function artistKeys(name: string): string[] {
-  const base = normalize(name);
-  const parts = base
-    .split(/\s+(?:and|b2b|x)\s+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  return Array.from(new Set([base, ...parts].filter((p) => p.length >= 2)));
-}
-
 function parseMinutes(time?: string): number | null {
   if (!time) return null;
   const [h, m] = time.split(":").map(Number);
@@ -65,48 +40,17 @@ function setDurationMinutes(act: Act): number | undefined {
 function buildArtistIndex(topArtists: TopArtist[]): Map<string, TopArtist> {
   const index = new Map<string, TopArtist>();
   for (const artist of topArtists) {
-    for (const key of artistKeys(artist.a)) {
-      const existing = index.get(key);
-      if (!existing || artist.ms > existing.ms) index.set(key, artist);
-    }
+    if (!artist.spotifyArtistId) continue;
+    const existing = index.get(artist.spotifyArtistId);
+    if (!existing || artist.ms > existing.ms) index.set(artist.spotifyArtistId, artist);
   }
   return index;
 }
 
-function tokenSet(value: string): Set<string> {
-  return new Set(normalize(value).split(" ").filter((token) => token.length >= 2));
-}
-
-function isSafeArtistAlias(actKey: string, spotifyKey: string): boolean {
-  if (actKey === spotifyKey) return true;
-
-  const actTokens = tokenSet(actKey);
-  const spotifyTokens = tokenSet(spotifyKey);
-  if (!actTokens.size || !spotifyTokens.size) return false;
-
-  // Allow small punctuation/connector differences, but do not allow a one-word
-  // Spotify artist to claim a longer act name. Example: "Scene Queen" must not
-  // match "Queen" just because one token overlaps.
-  const actInSpotify = [...actTokens].every((token) => spotifyTokens.has(token));
-  const spotifyInAct = [...spotifyTokens].every((token) => actTokens.has(token));
-  if (actTokens.size === spotifyTokens.size && actInSpotify && spotifyInAct) return true;
-
-  // Permit acronyms / short stylings only when the shorter side has at least two
-  // tokens on the other side. This catches connector variants without reviving
-  // broad substring matches.
-  return false;
-}
-
 function findArtist(index: Map<string, TopArtist>, actArtist: string): TopArtist | undefined {
-  const keys = artistKeys(actArtist);
-  for (const key of keys) {
-    const exact = index.get(key);
-    if (exact) return exact;
-  }
+  const identity = festivalArtistIdentities[actArtist];
+  if (identity) return index.get(identity.spotifyArtistId);
 
-  for (const [spotifyKey, artist] of index) {
-    if (keys.some((key) => isSafeArtistAlias(key, spotifyKey))) return artist;
-  }
   return undefined;
 }
 
@@ -114,13 +58,19 @@ function artistSourceForMode(data: DataBundle, mode: string): TopArtist[] {
   if (mode === "all") return data.topArtists;
   const year = data.perYear.find((row) => row.y === mode);
   if (!year) return data.topArtists;
-  return year.artists.map((artist) => ({
-    ...artist,
-    first: `${mode}-01-01`,
-    last: `${mode}-12-31`,
-    skips: 0,
-    exposures: artist.plays,
-  }));
+  const canonicalArtists = new Map(data.topArtists.map((artist) => [artist.a, artist]));
+  return year.artists.map((artist) => {
+    const canonical = canonicalArtists.get(artist.a);
+    return {
+      ...artist,
+      spotifyArtistId: canonical?.spotifyArtistId,
+      spotifyName: canonical?.spotifyName,
+      first: `${mode}-01-01`,
+      last: `${mode}-12-31`,
+      skips: 0,
+      exposures: artist.plays,
+    };
+  });
 }
 
 function scoreFestivals(data: DataBundle, mode = "all"): FestivalScore[] {

@@ -22,6 +22,8 @@ export interface TopArtist {
   skips: number;
   exposures: number;
   uri?: string;
+  spotifyArtistId?: string;
+  spotifyName?: string;
   genres?: string[];
 }
 export interface TopTrack { a: string; t: string; plays: number; ms: number; }
