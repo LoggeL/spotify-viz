@@ -1356,6 +1356,14 @@ svg.viz a:hover rect { filter: brightness(1.08); }
   font-family: "JetBrains Mono", monospace;
   font-size: 0.72rem;
 }
+
+.festival-rank-preview {
+  margin-top: 0.55rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  opacity: 0.82;
+}
 .festival-detail {
   border: 1px solid var(--rule);
   border-radius: 5px;

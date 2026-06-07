@@ -236,6 +236,11 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
       const btn = document.createElement("button");
       btn.className = "festival-rank-card";
       btn.dataset.id = festival.id;
+      const matchedNames = festival.acts
+        .filter((act) => act.minutes > 0)
+        .slice(0, 6)
+        .map((act) => act.artist)
+        .join(", ");
       btn.innerHTML = `
         <div class="festival-rank-top">
           <span>${escapeHtml(festival.name)}</span>
@@ -247,6 +252,7 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
           <span>${fmtNum(festival.totalPlays)} plays</span>
           <span>${festival.matchedActs}/${festival.totalActs} acts</span>
         </div>
+        <div class="festival-rank-preview">${matchedNames ? escapeHtml(matchedNames) : "No known acts yet"}</div>
       `;
       btn.addEventListener("click", () => {
         selectedId = festival.id;
