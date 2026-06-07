@@ -37,21 +37,47 @@ function setDurationMinutes(act: Act): number | undefined {
   return Math.max(0, adjustedEnd - start);
 }
 
-function buildArtistIndex(topArtists: TopArtist[]): Map<string, TopArtist> {
-  const index = new Map<string, TopArtist>();
-  for (const artist of topArtists) {
-    if (!artist.spotifyArtistId) continue;
-    const existing = index.get(artist.spotifyArtistId);
-    if (!existing || artist.ms > existing.ms) index.set(artist.spotifyArtistId, artist);
-  }
-  return index;
+function normalizeArtistName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\bthe\b/g, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
 }
 
-function findArtist(index: Map<string, TopArtist>, actArtist: string): TopArtist | undefined {
-  const identity = festivalArtistIdentities[actArtist];
-  if (identity) return index.get(identity.spotifyArtistId);
+type ArtistIndex = {
+  bySpotifyId: Map<string, TopArtist>;
+  byName: Map<string, TopArtist>;
+};
 
-  return undefined;
+function keepBest(index: Map<string, TopArtist>, key: string | undefined, artist: TopArtist) {
+  if (!key) return;
+  const existing = index.get(key);
+  if (!existing || artist.ms > existing.ms) index.set(key, artist);
+}
+
+function buildArtistIndex(topArtists: TopArtist[]): ArtistIndex {
+  const bySpotifyId = new Map<string, TopArtist>();
+  const byName = new Map<string, TopArtist>();
+  for (const artist of topArtists) {
+    keepBest(bySpotifyId, artist.spotifyArtistId, artist);
+    keepBest(byName, normalizeArtistName(artist.a), artist);
+    keepBest(byName, artist.spotifyName ? normalizeArtistName(artist.spotifyName) : undefined, artist);
+  }
+  return { bySpotifyId, byName };
+}
+
+function findArtist(index: ArtistIndex, actArtist: string): TopArtist | undefined {
+  const identity = festivalArtistIdentities[actArtist];
+  if (identity) {
+    return index.bySpotifyId.get(identity.spotifyArtistId)
+      ?? index.byName.get(normalizeArtistName(identity.name));
+  }
+
+  return index.byName.get(normalizeArtistName(actArtist));
 }
 
 function artistSourceForMode(data: DataBundle, mode: string): TopArtist[] {
@@ -168,7 +194,10 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
     });
     const festival = scored.find((item) => item.id === id) ?? scored[0];
     const maxMinutes = Math.max(1, ...festival.acts.map((act) => act.minutes));
-    const topActs = festival.acts.slice(0, 40);
+    const matchedActs = festival.acts.filter((act) => act.minutes > 0);
+    const unmatchedPreview = festival.acts.filter((act) => act.minutes <= 0).slice(0, Math.max(0, 40 - matchedActs.length));
+    const topActs = [...matchedActs, ...unmatchedPreview];
+    const hiddenActs = Math.max(0, festival.acts.length - topActs.length);
     detail.innerHTML = `
       <div class="festival-detail-head">
         <div>
@@ -193,6 +222,7 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
             </a>
           `;
         }).join("")}
+        ${hiddenActs ? `<div class="festival-act-row muted-row"><span></span><span>${hiddenActs} unmatched low-score acts hidden</span><span></span><span></span></div>` : ""}
       </div>
     `;
   }

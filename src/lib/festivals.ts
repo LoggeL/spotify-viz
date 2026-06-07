@@ -55,9 +55,9 @@ export const festivals: Festival[] = [
     name: "Highfield",
     place: "Störmthaler See, Großpösna",
     dates: "13.-16. August 2026",
-    note: "Offizielles Line-up nach Tagen; Uhrzeiten waren am 28.05.2026 noch nicht veröffentlicht.",
+    note: "Offizielles Line-up nach Tagen; Uhrzeiten waren am 07.06.2026 noch nicht veröffentlicht.",
     sourceUrl: "https://highfield.de/line-up/",
-    stageOrder: ["Concert", "Electric Beach"],
+    stageOrder: ["Warm-Up Party", "Konzert", "Electric Beach"],
   },
 ];
 
@@ -317,9 +317,10 @@ const stagetopia: Act[] = stagetopiaRows.map(([stage, artist, start, end]) => ({
   source: "official-timetable",
 }));
 
-const highfieldByDay: Record<string, { concert: string[]; electric?: string[] }> = {
+const highfieldByDay: Record<string, { warmup?: string[]; concert: string[]; electric?: string[] }> = {
   "Donnerstag|13.08.2026": {
-    concert: ["DRUNKEN MASTERS", "BIERBABES", "DENNIS CONCORDE"],
+    warmup: ["DRUNKEN MASTERS", "BIERBABES", "DENNIS CONCORDE"],
+    concert: [],
     electric: ["THE IRONIX", "MIAMI LENZ", "RUTGER LIVE"],
   },
   "Freitag|14.08.2026": {
@@ -331,13 +332,22 @@ const highfieldByDay: Record<string, { concert: string[]; electric?: string[] }>
     electric: ["DJ SPORTSCHUH", "CLARA B2B FLAVIUS"],
   },
   "Sonntag|16.08.2026": {
-    concert: ["BEATSTEAKS", "MARTERIA", "FEINE SAHNE FISCHFILET", "$OHO BANI", "DILLA", "DEINE COUSINE", "NURA", "MONTREAL", "KAFVKA", "ANAIS"],
+    concert: ["BEATSTEAKS", "MARTERIA", "FEINE SAHNE FISCHFILET", "$OHO BANI", "DILLA", "DEINE COUSINE", "NURA", "MONTREAL", "KAFVKA", "ANAÏS"],
   },
 };
 
 const highfield: Act[] = Object.entries(highfieldByDay).flatMap(([key, groups]) => {
   const [day, date] = key.split("|");
   return [
+    ...(groups.warmup ?? []).map((artist, index) => ({
+      id: `highfield-${date}-warmup-${index}`,
+      festivalId: "highfield-2026" as const,
+      day,
+      date,
+      stage: "Warm-Up Party",
+      artist,
+      source: "official-lineup" as const,
+    })),
     ...groups.concert.map((artist, index) => ({
       id: `highfield-${date}-concert-${index}`,
       festivalId: "highfield-2026" as const,

@@ -41,6 +41,10 @@ export const festivalArtistIdentities: Record<string, FestivalArtistIdentity> = 
     "name": "anaïs",
     "spotifyArtistId": "5uT4SmzhWTYv1iia2BFnVQ"
   },
+  "ANAÏS": {
+    "name": "anaïs",
+    "spotifyArtistId": "5uT4SmzhWTYv1iia2BFnVQ"
+  },
   "ANDA MORTS": {
     "name": "Anda Morts",
     "spotifyArtistId": "4I2FyJP0zs6IPgasQVwG7r"

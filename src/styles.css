@@ -1402,6 +1402,7 @@ svg.viz a:hover rect { filter: brightness(1.08); }
 }
 .festival-act-row:hover { background: rgba(29, 185, 84, 0.045); }
 .festival-act-row:last-child { border-bottom: none; }
+.festival-act-row.muted-row { color: var(--muted); pointer-events: none; }
 .festival-act-row .rank {
   color: var(--muted);
   font-size: 0.74rem;
