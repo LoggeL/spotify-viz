@@ -330,9 +330,14 @@ async function main() {
     }
   }
   const loyalty = topArtists.slice(0, 30).map((a) => {
-    const set = new Set();
-    for (const p of fullPlays) if (p.a === a.a) set.add(p.ts.slice(0, 7));
-    return { a: a.a, active: months.map((m) => (set.has(m) ? 1 : 0)) };
+    const byMonth = new Map();
+    for (const p of fullPlays) {
+      if (p.a !== a.a) continue;
+      const ym = p.ts.slice(0, 7);
+      byMonth.set(ym, (byMonth.get(ym) || 0) + p.ms);
+    }
+    const ms = months.map((m) => byMonth.get(m) || 0);
+    return { a: a.a, active: ms.map((v) => (v > 0 ? 1 : 0)), ms };
   });
 
   // countries (plays + ms)

@@ -1,4 +1,5 @@
-import { mkSvg, rect, text, line, attachHover, C_ACCENT, C_GRID } from "../lib/util";
+import { fmtHoursShort } from "../lib/data";
+import { mkSvg, rect, text, line, attachHover, C_GRID, seqGreen } from "../lib/util";
 import type { DataBundle } from "../lib/data";
 
 export function renderLoyalty(data: DataBundle): SVGSVGElement {
@@ -13,6 +14,11 @@ export function renderLoyalty(data: DataBundle): SVGSVGElement {
   const svg = mkSvg(W, H);
 
   const cellW = (W - marginL - marginR) / months.length;
+  const values = rows.flatMap((r) => r.ms ?? r.active.map((v) => v));
+  const positive = values.filter((v) => v > 0).sort((a, b) => a - b);
+  const max = positive.at(-1) || 1;
+  const p90 = positive[Math.floor((positive.length - 1) * 0.9)] || max;
+  const scaleMax = Math.max(1, p90);
 
   // year ticks
   let lastYear = "";
@@ -38,11 +44,14 @@ export function renderLoyalty(data: DataBundle): SVGSVGElement {
       stroke: "#f4f4f1", "stroke-width": 1,
     }));
 
-    r.active.forEach((v, j) => {
+    const ms = r.ms ?? r.active.map((v) => v);
+    ms.forEach((v, j) => {
       if (!v) return;
       const x = marginL + j * cellW;
-      const el = rect(x, y + 4, Math.max(2, cellW - 1), rowH - 8, { fill: C_ACCENT });
-      attachHover(el, `${r.a}  ${months[j]}`);
+      const intensity = Math.min(1, Math.sqrt(v / scaleMax));
+      const el = rect(x, y + 4, Math.max(2, cellW - 1), rowH - 8, { fill: seqGreen(intensity) });
+      const label = r.ms ? `${r.a}  ${months[j]}  ${fmtHoursShort(v)}` : `${r.a}  ${months[j]}`;
+      attachHover(el, label);
       svg.appendChild(el);
     });
   }

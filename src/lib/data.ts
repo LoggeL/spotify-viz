@@ -38,7 +38,7 @@ export interface PlatformRow {
 export interface SkipTrack { t: string; full: number; skip: number; }
 export interface SkipArtist { a: string; exp: number; skips: number; plays: number; ms: number; skipMs: number; rate: number; avgSkipSec: number; topSkipTracks?: SkipTrack[]; }
 export interface SkipStats { globalRate: number; globalSkips: number; globalExposures: number; avgSkipMs: number; }
-export interface LoyaltyRow { a: string; active: number[]; }
+export interface LoyaltyRow { a: string; active: number[]; ms?: number[]; }
 
 export interface Records {
   longestDay: { d: string; ms: number; plays: number };
