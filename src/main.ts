@@ -46,7 +46,7 @@ interface VizDef {
 }
 
 const VIZ: VizDef[] = [
-  { id: "festival-score", title: "Festival Match", subtitle: "Rock am Ring, Southside, Stagetopia & Highfield · scored by your artist minutes", render: renderFestivalScore },
+  { id: "festival-score", title: "Festival Match", subtitle: "Southside, Stagetopia & Highfield · scored by your artist minutes", render: renderFestivalScore },
   { id: "records", title: "Records & Extremes", subtitle: "die crazy stats aus fast 9 jahren hören", render: renderRecords },
   { id: "per-year-top", title: "Top per Year", subtitle: "top artists + top tracks · jahr wählbar", render: renderPerYearTop },
   { id: "hours-year", title: "Hours per Year", subtitle: "jahres-totals in stunden", render: renderHoursPerYear },
