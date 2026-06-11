@@ -113,12 +113,14 @@ function artistSourceForMode(data: DataBundle, mode: string): TopArtist[] {
     });
 }
 
-function scoreFestivals(data: DataBundle, mode = "all"): FestivalScore[] {
+function scoreFestivals(data: DataBundle, mode = "all", includeArchived = false): FestivalScore[] {
   const sourceArtists = artistSourceForMode(data, mode);
   const index = buildArtistIndex(sourceArtists);
   const maxArtistMinutes = Math.max(1, ...sourceArtists.map((a) => a.ms / 60_000));
 
-  const rows = festivals.map((festival) => {
+  const visibleFestivals = includeArchived ? festivals : festivals.filter((festival) => !festival.archived);
+
+  const rows = visibleFestivals.map((festival) => {
     const festivalActs = acts.filter((act) => act.festivalId === festival.id);
     const scoredActs = festivalActs.map((act) => {
       const spotifyArtist = findArtist(index, act.artist);
@@ -176,7 +178,8 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
   const years = data.perYear.map((row) => row.y).sort();
   const latestYear = years.at(-1) ?? data.totals.years.at(-1) ?? new Date().getFullYear().toString();
   let mode = "all";
-  let scored = scoreFestivals(data, mode);
+  const includeArchived = new URLSearchParams(window.location.search).get("archive") === "1";
+  let scored = scoreFestivals(data, mode, includeArchived);
   let selectedId = scored[0]?.id;
 
   root.innerHTML = `
@@ -184,7 +187,7 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
       <div>
         <div class="eyebrow">festival match engine</div>
         <h3><span class="festival-leader-name">${scored[0] ? escapeHtml(scored[0].name) : "Festival"}</span> leads with <span class="festival-leader-score">${scored[0]?.score ?? 0}</span>/100</h3>
-        <p>Scores use your Spotify artist minutes, act coverage, and lineup depth. Switch between lifetime taste and your latest listening year.</p>
+        <p>Scores use your Spotify artist minutes, act coverage, and lineup depth. Switch between lifetime taste and your latest listening year.${includeArchived ? " Archive view includes hidden past festivals." : ""}</p>
         <div class="festival-mode-toggle" role="group" aria-label="Festival scoring mode">
           <button class="active" data-mode="all" type="button">All time</button>
           <button data-mode="${latestYear}" type="button">${latestYear}</button>
@@ -254,7 +257,7 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
         .join(", ");
       btn.innerHTML = `
         <div class="festival-rank-top">
-          <span>${escapeHtml(festival.name)}</span>
+          <span>${escapeHtml(festival.name)}${festival.archived ? " <small>archive</small>" : ""}</span>
           <strong class="mono">${festival.score}</strong>
         </div>
         <div class="festival-rank-bar"><span style="width:${festival.score}%"></span></div>
@@ -275,7 +278,7 @@ export function renderFestivalScore(data: DataBundle): HTMLElement {
 
   function setMode(nextMode: string) {
     mode = nextMode;
-    scored = scoreFestivals(data, mode);
+    scored = scoreFestivals(data, mode, includeArchived);
     selectedId = scored[0]?.id;
     const leader = scored[0];
     leaderName.textContent = leader?.name ?? "Festival";
