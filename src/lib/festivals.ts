@@ -1,4 +1,4 @@
-export type FestivalId = "rock-am-ring-2026" | "southside-2026" | "stagetopia-2026" | "highfield-2026";
+export type FestivalId = "rock-am-ring-2026" | "southside-2026" | "stagetopia-2026" | "highfield-2026" | "hurricane-2026" | "deichbrand-2026" | "ms-dockville-2026" | "haldern-pop-2026" | "open-flair-2026";
 
 export type Act = {
   id: string;
@@ -60,6 +60,51 @@ export const festivals: Festival[] = [
     note: "Offizielles Line-up nach Tagen; Uhrzeiten waren am 07.06.2026 noch nicht veröffentlicht.",
     sourceUrl: "https://highfield.de/line-up/",
     stageOrder: ["Warm-Up Party", "Konzert", "Electric Beach"],
+  },
+  {
+    id: "hurricane-2026",
+    name: "Hurricane",
+    place: "Eichenring, Scheeßel",
+    dates: "19.-21. Juni 2026",
+    note: "Offizielles Line-up; Tages- und Bühnenzeiten waren bei Erfassung noch nicht vollständig veröffentlicht.",
+    sourceUrl: "https://hurricane.de/line-up/",
+    stageOrder: ["Line-up"],
+  },
+  {
+    id: "deichbrand-2026",
+    name: "DEICHBRAND",
+    place: "Seeflughafen Cuxhaven/Nordholz",
+    dates: "16.-19. Juli 2026",
+    note: "Offizielles Line-up inkl. Electronic Selection; Tages- und Bühnenzeiten waren bei Erfassung noch nicht vollständig veröffentlicht.",
+    sourceUrl: "https://deichbrand.de/line-up/",
+    stageOrder: ["Line-up", "Electronic Selection"],
+  },
+  {
+    id: "ms-dockville-2026",
+    name: "MS DOCKVILLE",
+    place: "Hamburg-Wilhelmsburg",
+    dates: "14.-15. August 2026",
+    note: "Offizielles Line-up, Stand der ersten Veröffentlichungswellen; Zeiten noch offen.",
+    sourceUrl: "https://msdockville.de/line-up/",
+    stageOrder: ["Line-up"],
+  },
+  {
+    id: "haldern-pop-2026",
+    name: "Haldern Pop",
+    place: "Rees-Haldern",
+    dates: "5.-8. August 2026",
+    note: "Offiziell bestätigtes Line-up; genaue Running Order noch offen.",
+    sourceUrl: "https://haldernpop.com/en/lineup/2026",
+    stageOrder: ["Line-up"],
+  },
+  {
+    id: "open-flair-2026",
+    name: "Open Flair",
+    place: "Eschwege",
+    dates: "5.-9. August 2026",
+    note: "Offizielle Künstlerübersicht; Timetable/Zeiten noch nicht vollständig übernommen.",
+    sourceUrl: "https://www.open-flair.de/2026/artists",
+    stageOrder: ["Musik", "Elektrogarten"],
   },
 ];
 
@@ -371,7 +416,91 @@ const highfield: Act[] = Object.entries(highfieldByDay).flatMap(([key, groups]) 
   ];
 });
 
-export const acts: Act[] = [...rar, ...southside, ...stagetopia, ...highfield];
+const hurricaneArtists = ["Twenty One Pilots", "Kraftklub", "Yungblud", "The Offspring", "Papa Roach", "BHZ", "Donots", "Leony", "Kayla Shyx", "Billy Talent", "Florence + The Machine", "Empire Of The Sun", "Provinz", "Finch", "Roy Bianco & Die Abbrunzati Boys", "Nothing But Thieves", "A Day To Remember", "Wolf Alice", "SSIO", "Bosse", "Alexisonfire", "All Time Low", "Natasha Bedingfield", "Pennywise", "Edwin Rosen", "Kaffkiez", "The Beaches", "Grandson", "Zebrahead", "OG Keemo", "Skindred", "Soft Play", "Boys Noize", "Modeselektor", "Modestep (Live)", "David Puentez", "Tinlicker", "Halsey", "Clueso", "Orville Peck", "Drunken Masters", "Levin Liam", "Kasi", "Røry", "Basement", "Betterov", "Delilah Bon", "Ecca Vandal", "Davina Michelle", "Filow"];
+
+const hurricane: Act[] = hurricaneArtists.map((artist, index) => ({
+  id: `hurricane-2026-${index}`,
+  festivalId: "hurricane-2026",
+  day: "TBA",
+  date: "19.-21.06.2026",
+  stage: "Line-up",
+  artist,
+  source: "official-lineup",
+}));
+
+const deichbrandMain = ["Rise Against", "SDP", "Electric Callboy", "Scooter", "Marteria", "Sido", "Dropkick Murphys", "Zartmann", "Beatsteaks", "01099", "Giant Rooks", "Ikkimel", "Feine Sahne Fischfilet", "Disco Lines", "HBZ", "Mehnersmoos", "Felix Jaehn", "No Angels", "Makko", "Nico Santos", "Alexander Marcus", "Querbeat", "Disarstar", "Swiss & Die Andern", "Mia Julia", "102 Boyz", "Raum27", "Nura", "257ers", "Drunken Masters", "Majan", "Cascada", "The Rasmus", "Tiefbasskommando", "Jet", "Annisokay", "Deaf Havana", "Welshly Arms", "Jassin", "Rogers", "Anna Grey", "Ok.Danke.Tschüss", "Badchieff", "Tjark", "Anaïs", "Bac", "Marlo Grosshardt", "Punk Rock Factory", "Our Mirage", "Leap", "Le Fly", "Jolle", "Beauty & The Beats", "Massendefekt", "Mandelkokainschnaps", "Avralize", "Noah Kraus", "Lovehead", "Panicbaby", "Augn", "Luke Madness", "The Molotovs", "Bella", "Kochkraft durch KMA", "Remote Bondage", "Grenzkontrolle", "Attic109", "Ochmoneks", "Lina Bó", "King Kong Kicks"];
+const deichbrandElectronic = ["Andhim", "Annett Gapstream", "Baby B3ns", "Cara Elisabeth", "Christian Löffler (Live)", "Davyboi", "DJ Dreckisch", "Ede", "Ellen Allien", "Eskei83", "Godash", "Kenza Kayati", "Kid Simius (Live)", "Kollektiv Turmstrasse (Live)", "Kristin Velvet", "Küstenklatsch", "Lynno", "Mind Against", "Moonbootica", "Nina Hepburn", "Noel Holler", "Nohr (Live)", "No.Mads", "Nora En Pure", "Paraçek", "Schlepp Geist", "Schrotthagen", "Skkin Velvet", "Suzé", "Tonic Walter (Live)", "Vargo"];
+
+const deichbrand: Act[] = [
+  ...deichbrandMain.map((artist, index) => ({
+    id: `deichbrand-2026-main-${index}`,
+    festivalId: "deichbrand-2026" as const,
+    day: "TBA",
+    date: "16.-19.07.2026",
+    stage: "Line-up",
+    artist,
+    source: "official-lineup" as const,
+  })),
+  ...deichbrandElectronic.map((artist, index) => ({
+    id: `deichbrand-2026-electronic-${index}`,
+    festivalId: "deichbrand-2026" as const,
+    day: "TBA",
+    date: "16.-19.07.2026",
+    stage: "Electronic Selection",
+    artist,
+    source: "official-lineup" as const,
+  })),
+];
+
+const msDockvilleArtists = ["Tom Odell", "Berq", "Von Wegen Lisbeth", "Blond", "Zimmer90", "Noga Erez", "Paris Paloma", "Bibiza", "Jolle", "6euroneunzig", "Dove Ellis", "Dews Pegahorn", "Vandalisbin", "Sampa The Great", "Alessi Rose", "Wednesday", "Baran Kok", "Jonny Mahoro", "Yung Pepp", "Charlize", "Faravaz", "LP Giobbi", "nand", "Baugruppe90", "Cordoba78", "La Sécurité", "Mel D", "TUKAN", "Anja Schneider", "King Kong Kicks"];
+
+const msDockville: Act[] = msDockvilleArtists.map((artist, index) => ({
+  id: `ms-dockville-2026-${index}`,
+  festivalId: "ms-dockville-2026",
+  day: "TBA",
+  date: "14.-15.08.2026",
+  stage: "Line-up",
+  artist,
+  source: "official-lineup",
+}));
+
+const haldernPopArtists = ["Sportfreunde Stiller", "Asaf Avidan", "The Notwist", "The 113", "Black Country, New Road", "herbst", "chest.", "Boko Yout", "Deki Alem", "Horse Lords", "Julia Effekt", "Westside Cowboy", "Beurre", "Chris Imler", "District Five", "Erotic Secrets of Pompeii", "La Sécurité", "The Sick Man of Europe", "Wallners", "1000 Rabbits", "Adult DVD", "Cardinals", "Friko", "GANS", "Horsegirl", "Naïka", "Silver Gore", "Tyler Ballgame", "WOOM", "Bleech 9:3", "Bonnie ‘Prince’ Billy", "Chéri Chéri", "Frankie and the Witch Fingers", "Geordie Greep", "Lucy Kruger & The Lost Boys", "Madra Salach", "Marta Del Grandi", "Mount Palomar", "Nathalie Froehlich", "The Itch", "The Love Buzz", "Ugly", "Woods of Birnam", "Abel Ghekiere", "Cantus Domus", "Clap Your Hands Say Yeah", "Flying Moon in Space", "Heidi Curtis", "Hex Girlfriend", "Jacob Alon", "Kabeaushé", "Nectar Woode", "Wellbehaved", "Yana Couto", "Fitzgerald & Rimini", "iedereen", "Della", "Sara Parkman", "My New Band Believe", "elie zoé", "André de Ridder & Friends", "Susan O’Neill", "Anushka Chkheidze & Robert Lippok", "DJ Fett", "Ben E. Blame & Sugar Shame"];
+
+const haldernPop: Act[] = haldernPopArtists.map((artist, index) => ({
+  id: `haldern-pop-2026-${index}`,
+  festivalId: "haldern-pop-2026",
+  day: "TBA",
+  date: "05.-08.08.2026",
+  stage: "Line-up",
+  artist,
+  source: "official-lineup",
+}));
+
+const openFlairMusic = ["100 Kilo Herz", "Alien Ant Farm", "Alli Neumann", "Amina", "Amistat", "Anda Morts", "April Art", "Attic109", "Babyshambles", "Bad Cop Bad Cop", "Bibiza", "Biffy Clyro", "Bluthund", "Bosse", "Buster Shuffle", "Cari Cari", "Carsick", "Contrabrass", "Das Lumpenpack", "Deine Cousine", "Die Lieferanten", "Donots", "Dritte Wahl", "Dropkick Murphys", "Elfmorgen", "Elvana", "Emil Bulls", "Ende", "Feine Sahne Fischfilet", "Fellows", "Finna", "Frank Turner & The Sleeping Souls", "FRAUPAUL", "From Fall To Spring", "Fullax", "Giant Rooks", "Gogol Bordello", "Hot Water Music", "Hyphen", "Illegale Ravemesse", "Jan Blomqvist Band", "Jungfrau Männlich Deluxe", "Kadavar", "Kaffkiez", "Karen Dió", "Kimkoi", "Kommando Butterfahrt", "Kupfergold", "Less Than Jake", "Lostboi Lino", "Lottery Winners", "Marlo Grosshardt", "Mia Morgan", "Monsters of Liedermaching", "Nand", "Our Mirage", "PA69", "Pippa", "Richie Miller House Band", "Ritter Lean", "Salò", "SDP", "Shoreline", "Skatacombo", "Slope", "South Arcade", "Still Talk", "The Red Flags", "Tristan Brusch", "Vita", "Yunus", "Zartmann"];
+const openFlairElectronic = ["ANNĒ", "Blade & Smith", "Copperhead", "DEMIRO b2b DJ KAINA", "DJ Bafög b2b Samalik", "DJ Flitzpiepe", "Drittes OG", "Emilio Albert", "FENIM0RE", "Jannik Fischbach", "Karla Blum", "Lennart Grove", "Marky", "Oliver Schories", "Pauli Pocket & Foolik", "Philipp Stützer", "Rumo", "Teenage Mutants", "ÜBERKIKZ", "Zoka"];
+
+const openFlair: Act[] = [
+  ...openFlairMusic.map((artist, index) => ({
+    id: `open-flair-2026-music-${index}`,
+    festivalId: "open-flair-2026" as const,
+    day: "TBA",
+    date: "05.-09.08.2026",
+    stage: "Musik",
+    artist,
+    source: "official-lineup" as const,
+  })),
+  ...openFlairElectronic.map((artist, index) => ({
+    id: `open-flair-2026-electronic-${index}`,
+    festivalId: "open-flair-2026" as const,
+    day: "TBA",
+    date: "05.-09.08.2026",
+    stage: "Elektrogarten",
+    artist,
+    source: "official-lineup" as const,
+  })),
+];
+
+export const acts: Act[] = [...rar, ...southside, ...stagetopia, ...highfield, ...hurricane, ...deichbrand, ...msDockville, ...haldernPop, ...openFlair];
 
 export function getFestival(id: FestivalId) {
   return festivals.find((festival) => festival.id === id) ?? festivals[0];
